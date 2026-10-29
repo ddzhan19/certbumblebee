@@ -1,26 +1,38 @@
 name: Release
 
 # Startet, wenn ein Tag wie v1.2.0 hochgeladen wird. Der Tag muss zu appVersion in version.go passen.
+# Von Hand startbar (Actions > Release > Run workflow) für einen vorhandenen Tag, z. B. wenn der erste Lauf scheiterte.
+# Gibt es zum Tag schon ein Release, hängt der Lauf die Dateien dort an, sonst legt er es an.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Vorhandener Tag, z. B. v1.2.0'
+        required: true
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       - name: Tag und Version vergleichen
         run: |
           v=$(sed -n 's/.*appVersion *= *"\(.*\)".*/\1/p' version.go)
-          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
-            echo "Der Tag $GITHUB_REF_NAME passt nicht zu appVersion $v in version.go."
+          if [ "v$v" != "$TAG" ]; then
+            echo "Der Tag $TAG passt nicht zu appVersion $v in version.go."
             exit 1
           fi
       - name: Symbol und Versionsangaben erzeugen
@@ -32,9 +44,13 @@ jobs:
           mkdir dist
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/certbumblebee.exe .
           cd dist && sha256sum certbumblebee.exe > certbumblebee.exe.sha256
-      - name: Release anlegen
+      - name: Release anlegen oder ergänzen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/certbumblebee.exe dist/certbumblebee.exe.sha256 \
-            --title "Certbumblebee $GITHUB_REF_NAME" --generate-notes
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/certbumblebee.exe dist/certbumblebee.exe.sha256 --clobber
+          else
+            gh release create "$TAG" dist/certbumblebee.exe dist/certbumblebee.exe.sha256 \
+              --title "Certbumblebee $TAG" --generate-notes
+          fi
