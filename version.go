@@ -3,7 +3,7 @@ package main
 const (
 	appName    = "Certbumblebee"
 	appAuthor  = "Dzhan Chelebi"
-	appVersion = "1.2.0"
+	appVersion = "1.2.1"
 	appExeName = "certbumblebee.exe"
 	userAgent  = "certbumblebee/" + appVersion
 )

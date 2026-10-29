@@ -26,7 +26,7 @@ with sync_playwright() as pw:
     check('Titel', page.title() == 'Certbumblebee')
     check('Kopf mit Name', page.inner_text('h1') == 'Certbumblebee')
     check('Fuß: Programmiert von', 'Programmiert von Dzhan Chelebi' in page.inner_text('.foot-app'))
-    check('Version im Fuß', '1.2.0' in page.inner_text('#foot-version'))
+    check('Version im Fuß', '1.2.1' in page.inner_text('#foot-version'))
     page.screenshot(path=SHOTS + '/e1-ausstellen.png', full_page=True)
 
     # Ordnerauswahl

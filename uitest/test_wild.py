@@ -19,7 +19,7 @@ with sync_playwright() as pw:
     page.on('pageerror', lambda e: errors.append('pageerror: %s' % e))
     page.on('console', lambda m: errors.append('console: ' + m.text) if m.type == 'error' else None)
     page.goto(link)
-    expect(page.locator('#foot-version')).to_contain_text('1.2.0')
+    expect(page.locator('#foot-version')).to_contain_text('1.2.1')
     page.click('#tab-wild')
     page.click('#wgo1')
     expect(page.locator('#werr1')).to_contain_text('mindestens eine Domain')

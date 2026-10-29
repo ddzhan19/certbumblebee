@@ -34,6 +34,7 @@ type server struct {
 	done      chan struct{}
 	doneOnce  sync.Once
 	wild      atomic.Bool // true: Ein Wildcard-Zertifikat im Browser ist noch nicht heruntergeladen
+	denied    int         // Anzahl abgelehnter Anfragen ohne Anmeldung (nur für das Protokoll)
 	window    atomic.Bool // true: Die Oberfläche läuft im Programmfenster (kein Browser, keine Abschaltung bei Leerlauf)
 }
 
@@ -89,6 +90,7 @@ func (s *server) guard(auth bool, h http.HandlerFunc) http.HandlerFunc {
 		s.last = time.Now()
 		s.mu.Unlock()
 		if auth && !s.hasSession(r) {
+			s.logDenied(r, "Schnittstelle")
 			respond(w, http.StatusUnauthorized, map[string]any{"error": "Nicht angemeldet. Bitte den Link aus dem Programmfenster verwenden."})
 			return
 		}
@@ -120,11 +122,37 @@ func readJSON(r *http.Request, v any) error {
 	return nil
 }
 
-const notLoggedInPage = `<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+const notLoggedInHead = `<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Certbumblebee</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:12vh auto;padding:0 20px">
 <h1 style="font-size:1.25rem">Diese Seite ist nicht freigeschaltet</h1>
-<p>Bitte den Link verwenden, den das Programmfenster von Certbumblebee anzeigt. Er öffnet sich normalerweise von selbst und gilt nur einmal.</p>
-<p>Wurde der Link schon benutzt: im Programmfenster die Eingabetaste drücken, dann erscheint ein neuer.</p>`
+`
+
+// notLoggedInPage: Im Programmfenster gibt es keine Eingabetaste und keinen Link zum Kopieren. Dort hilft nur ein Neustart.
+func (s *server) notLoggedInPage() string {
+	if s.window.Load() {
+		return notLoggedInHead + `<p>Dieses Fenster ist nicht mehr bei Certbumblebee angemeldet.</p>
+<p>Bitte das Programm schließen und neu starten. Wenn das öfter vorkommt, hilft die Datei „za.log“ im Ordner „log“ des Arbeitsordners bei der Suche nach der Ursache.</p>`
+	}
+	return notLoggedInHead + `<p>Bitte den Link verwenden, den Certbumblebee anzeigt. Er öffnet sich normalerweise von selbst und gilt nur einmal.</p>
+<p>Wurde der Link schon benutzt: in dem Fenster, in dem das Programm läuft, die Eingabetaste drücken, dann erscheint ein neuer.</p>`
+}
+
+// logDenied schreibt ins Protokoll, warum eine Anfrage nicht angemeldet war (ohne den Wert des Cookies). Höchstens 30 Einträge.
+func (s *server) logDenied(r *http.Request, where string) {
+	s.mu.Lock()
+	s.denied++
+	n, sessions := s.denied, len(s.sessions)
+	s.mu.Unlock()
+	if n > 30 {
+		return
+	}
+	state := "kein Cookie"
+	if c, err := r.Cookie("za_sid"); err == nil {
+		state = fmt.Sprintf("Cookie mit %d Zeichen, unbekannte Sitzung", len(c.Value))
+	}
+	appLogGlobal(fmt.Sprintf("Anmeldung fehlt bei %s %s (%s): %s, %d Sitzung(en) im Programm, Port %s, Fenster=%v, Browser=%q",
+		r.Method, r.URL.Path, where, state, sessions, s.port, s.window.Load(), r.UserAgent()))
+}
 
 func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
@@ -138,15 +166,18 @@ func (s *server) handler() http.Handler {
 		}
 		s.mu.Unlock()
 		if !ok || time.Now().After(exp) {
+			s.logDenied(r, "Startlink ungültig oder schon benutzt")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte(notLoggedInPage))
+			_, _ = w.Write([]byte(s.notLoggedInPage()))
 			return
 		}
 		sid := randomHex(32)
 		s.mu.Lock()
 		s.sessions[sid] = true
+		n := len(s.sessions)
 		s.mu.Unlock()
+		appLogGlobal(fmt.Sprintf("Anmeldung: Sitzung angelegt (%d im Programm), Port %s, Browser=%q", n, s.port, r.UserAgent()))
 		http.SetCookie(w, &http.Cookie{Name: "za_sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}))
@@ -154,8 +185,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if !s.hasSession(r) {
+			s.logDenied(r, "Startseite")
 			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte(notLoggedInPage))
+			_, _ = w.Write([]byte(s.notLoggedInPage()))
 			return
 		}
 		_, _ = w.Write(indexHTML)
