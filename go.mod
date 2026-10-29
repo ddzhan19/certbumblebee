@@ -9,4 +9,7 @@ require (
 	software.sslmate.com/src/go-pkcs12 v0.7.4
 )
 
-require golang.org/x/text v0.43.0 // indirect
+require (
+	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+)

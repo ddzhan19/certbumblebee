@@ -243,19 +243,10 @@ func relaunchElevated() error {
 	return windows.ShellExecute(0, verb, file, par, cwd, windows.SW_NORMAL)
 }
 
-// initConsole: Das Programm ist eine Fenster-Anwendung ohne eigene Konsole. Wird es aus einer Konsole gestartet
-// (z. B. „renew“ oder „list“), hängt es sich an diese an und stellt sie auf UTF-8, damit Umlaute stimmen.
+// initConsole: Das Programm ist eine Konsolenanwendung (Link der Oberfläche, Passwort im Dauerbetrieb und Meldungen
+// erscheinen dort). Die Konsole wird auf UTF-8 gestellt, damit Umlaute stimmen.
 func initConsole() {
 	k := windows.NewLazySystemDLL("kernel32.dll")
-	const attachParentProcess = 0xFFFFFFFF
-	if r, _, _ := k.NewProc("AttachConsole").Call(attachParentProcess); r == 0 {
-		return
-	}
-	if f, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
-		os.Stdout, os.Stderr = f, f
-	}
-	if f, err := os.OpenFile("CONIN$", os.O_RDONLY, 0); err == nil {
-		os.Stdin = f
-	}
 	_, _, _ = k.NewProc("SetConsoleOutputCP").Call(65001)
+	_, _, _ = k.NewProc("SetConsoleCP").Call(65001)
 }

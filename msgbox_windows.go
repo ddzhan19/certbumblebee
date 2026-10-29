@@ -2,7 +2,18 @@
 
 package main
 
-import "golang.org/x/sys/windows"
+import (
+	"syscall"
+
+	"golang.org/x/sys/windows"
+)
+
+const idYes = 6
+
+func u16(s string) *uint16 {
+	p, _ := syscall.UTF16PtrFromString(s)
+	return p
+}
 
 // showError zeigt eine Fehlermeldung. Das Programm hat keine Konsole, deshalb würde eine Textausgabe sonst niemand sehen.
 func showError(title, text string) {

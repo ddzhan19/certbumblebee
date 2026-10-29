@@ -60,6 +60,15 @@ with sync_playwright() as pw:
     page.click('#go-issue')
     check('Wildcard verweist auf Tab', 'Wildcard / DNS (manuell)' in page.inner_text('#err-issue'))
 
+    # Linux ohne Dauerbetrieb: keine Aufgabenplanung, die Option ist abgeschaltet und erklärt
+    check('Auto-Erneuerung abgeschaltet (keine Aufgabenplanung)', page.is_disabled('#auto') and not page.is_checked('#auto'))
+    check('Hinweis nennt serve oder cron', 'serve' in page.inner_text('#auto-small') and 'cron' in page.inner_text('#auto-small'), page.inner_text('#auto-small'))
+    check('Linux: Platzhalter für Zielordner', page.get_attribute('#target', 'placeholder') == '/certs')
+    check('Linux: keine Firewall-Option', not page.is_visible('#fw-wrap'))
+    check('Neuer Tab „DNS-Zugänge“ da', page.is_visible('#tab-dns'))
+    check('Anmeldefenster im lokalen Betrieb aus', not page.is_visible('#login-screen'))
+    check('Beenden im lokalen Betrieb sichtbar', page.is_visible('#quit') and not page.is_visible('#logout'))
+
     # Dateiauswahl: Grundzustand, Vorschau, Passwort nur bei PFX, mindestens eine Datei
     check('Dateiauswahl: nur PFX vorgewählt', page.evaluate("() => [...document.querySelectorAll('input[name=out]:checked')].map(e => e.value).join()") == 'pfx')
     check('Dateiauswahl: Passwortfeld sichtbar', page.is_visible('#pfx-opts'))
@@ -125,7 +134,7 @@ with sync_playwright() as pw:
     page.click('#to-overview')
     page.wait_for_selector('.card')
     check('Karte in der Übersicht', 'ui.pebble-test.example' in page.inner_text('.card h3'))
-    check('Karte: Aufgabe vorhanden', 'Aufgabe vorhanden' in page.inner_text('.card'), page.inner_text('.card'))
+    check('Karte: ohne Aufgabenplanung nicht automatisch', 'Nicht automatisch' in page.inner_text('.card'), page.inner_text('.card'))
     check('Karte: 6 Dateien, alle vorhanden', page.locator('.card .facts ul.files li').count() == 6 and page.locator('.card .facts ul.files li .st.ok').count() == 6, page.inner_text('.card .facts'))
     check('Karte: Zielordner genannt', TARGET in page.inner_text('.card .facts'))
     page.screenshot(path=SHOTS + '/e5-uebersicht.png', full_page=True)
@@ -135,10 +144,7 @@ with sync_playwright() as pw:
     check('Erneuern: noch nicht fällig', 'nicht fällig' in page.inner_text('.card .jobmsg').lower() or 'noch' in page.inner_text('.card .jobmsg').lower(), page.inner_text('.card .jobmsg'))
     page.screenshot(path=SHOTS + '/e6-erneuern.png', full_page=True)
 
-    page.click('.card [data-act="tasktest"]')
-    page.wait_for_function("document.querySelector('.card .jobmsg .notice')", timeout=15000)
-    page.wait_for_timeout(4500)
-    check('Aufgabe testen liefert Ergebnis', len(page.inner_text('.card .jobmsg')) > 5, page.inner_text('.card .jobmsg'))
+    check('Kein „Aufgabe testen“ ohne Aufgabenplanung', page.locator('.card [data-act="tasktest"]').count() == 0)
     page.click('.card [data-act="log"]')
     page.wait_for_selector('.card .logbox:not([hidden])')
     check('Protokoll zeigt Einträge', len(page.inner_text('.card .logbox')) > 20)
@@ -173,7 +179,6 @@ with sync_playwright() as pw:
     page.uncheck('input[name="out"][value="pfx"]')
     page.check('input[name="out"][value="cert"]'); page.check('input[name="out"][value="key"]')
     check('Zurückgesetzt: Formatwahl sichtbar bei Zertifikat', page.is_visible('#certfmt-wrap'))
-    page.uncheck('#auto')
     # „Vorhandener Webserver“: ein einfacher Dateiserver auf dem Prüfport liefert den Webordner aus
     web = subprocess.Popen(['python3', '-m', 'http.server', '5002', '--bind', '0.0.0.0', '--directory', R + '/web'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(0.8)

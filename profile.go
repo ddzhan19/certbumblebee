@@ -22,7 +22,8 @@ type CreateRequest struct {
 	Domains      string   `json:"domains"`
 	Method       string   `json:"method"`
 	Webroot      string   `json:"webroot"`
-	ValidDays    int      `json:"validDays"` // nur selbstsigniert: Gültigkeit in Tagen
+	DNSAccount   string   `json:"dnsAccount"` // nur Methode „dns“: Zugang, leer = je Zone automatisch
+	ValidDays    int      `json:"validDays"`  // nur selbstsigniert: Gültigkeit in Tagen
 	TargetDir    string   `json:"targetDir"`
 	FileName     string   `json:"fileName"`   // Dateiname ohne Endung (optional)
 	Outputs      []string `json:"outputs"`    // pfx, cert, chain, fullchain, key, csr
@@ -74,9 +75,12 @@ func resolveServer(kind, customURL string) (string, string, error) {
 func buildProfile(req CreateRequest) (*Profile, error) {
 	var domains []string
 	var err error
-	if req.Method == "selfsigned" {
+	switch req.Method {
+	case "selfsigned":
 		domains, err = normalizeNames(req.Domains)
-	} else {
+	case "dns":
+		domains, err = normalizeWildDomains(req.Domains)
+	default:
 		domains, err = normalizeDomains(req.Domains)
 	}
 	if err != nil {
@@ -108,6 +112,22 @@ func buildProfile(req CreateRequest) (*Profile, error) {
 		}
 		if len(p.Webroot) == 0 {
 			return nil, fmt.Errorf("Ordner des Webservers: Bitte mindestens einen Ordner angeben (z. B. C:\\inetpub\\wwwroot).")
+		}
+	case "dns":
+		p.Method = "dns"
+		p.DNSAccount = strings.TrimSpace(req.DNSAccount)
+		accts := listDNSAccounts()
+		if len(accts) == 0 {
+			return nil, fmt.Errorf("Für „DNS (Cloudflare)“ muss zuerst ein Zugang hinterlegt werden: Reiter „DNS-Zugänge“, dort den Cloudflare-Token eintragen.")
+		}
+		if p.DNSAccount != "" {
+			found := false
+			for _, a := range accts {
+				found = found || a.ID == p.DNSAccount
+			}
+			if !found {
+				return nil, fmt.Errorf("Der gewählte DNS-Zugang existiert nicht.")
+			}
 		}
 	case "selfsigned":
 		p.Method = "selfsigned"
@@ -350,8 +370,11 @@ func runProfile(ctx context.Context, p *Profile, pw string, force bool, rep Repo
 		}
 	} else {
 		steps := []string{"vorbereitung", "konto", "bestellung", "pruefung", "zertifikat"}
-		if p.Method == "selfsigned" {
+		switch p.Method {
+		case "selfsigned":
 			steps = []string{"zertifikat"}
+		case "dns":
+			steps = []string{"konto", "bestellung", "dns", "dnswarten", "pruefung", "aufraeumen", "zertifikat"}
 		}
 		for _, k := range steps {
 			rep.Ok(k, "nicht nötig")
@@ -657,6 +680,8 @@ type ProfileView struct {
 	Domains     []string   `json:"domains"`
 	Method      string     `json:"method"`
 	Webroot     []string   `json:"webroot,omitempty"`
+	DNSAccount  string     `json:"dnsAccount,omitempty"`
+	DNSName     string     `json:"dnsName,omitempty"`
 	TargetDir   string     `json:"targetDir"`
 	FileName    string     `json:"fileName"`
 	TargetFile  string     `json:"targetFile"`
@@ -686,7 +711,7 @@ func listProfiles() []ProfileView {
 				return
 			}
 			st := loadState(id)
-			v := ProfileView{ID: id, Domains: p.Domains, Method: p.Method, Webroot: p.Webroot, TargetDir: p.TargetDir, FileName: p.FileName,
+			v := ProfileView{ID: id, Domains: p.Domains, Method: p.Method, Webroot: p.Webroot, DNSAccount: p.DNSAccount, TargetDir: p.TargetDir, FileName: p.FileName,
 				TargetFile: filepath.Join(p.TargetDir, p.FileName), ServerKind: p.ServerKind, PfxFormat: p.PfxFormat,
 				LastResult: st.LastResult, LastMessage: st.LastMessage,
 				Task: TaskView{Enabled: p.Task.Enabled, Name: p.Task.Name, Time: p.Task.Time, RunAs: p.Task.RunAs}}
@@ -703,6 +728,15 @@ func listProfiles() []ProfileView {
 				v.Files = append(v.Files, fv)
 			}
 			v.TargetFound = len(v.Files) > 0 && v.Files[0].Found
+			if p.Method == "dns" {
+				v.DNSName = "alle Zugänge (je Zone)"
+				if a, ok := getDNSAccount(p.DNSAccount); p.DNSAccount != "" {
+					v.DNSName = "(gelöscht)"
+					if ok {
+						v.DNSName = a.Name
+					}
+				}
+			}
 			if ci := loadCertInfo(id); ci != nil {
 				v.Cert = ci
 				v.DaysLeft = int(time.Until(ci.NotAfter).Hours() / 24)

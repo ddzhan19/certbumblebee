@@ -1,6 +1,8 @@
 package main
 
 import (
+	_ "time/tzdata" // Zeitzonen auch ohne Systemdaten (Container)
+
 	"bufio"
 	"context"
 	"flag"
@@ -16,15 +18,20 @@ func usage() {
 	fmt.Printf(`%s %s – programmiert von %s
 
 Aufruf:
-  %s                      Oberfläche starten (Programmfenster)
-  %s ui [--port N] [--browser] [--no-browser]
+  %s                      Oberfläche auf diesem Computer im Browser starten
+  %s ui [--port N] [--no-browser]
+  %s serve [--listen :8080]         Dauerbetrieb (Server/Container): Oberfläche mit Passwort und
+                                    eigenem Zeitplan für die Erneuerung
+  %s passwd                         Passwort der Oberfläche im Dauerbetrieb setzen
   %s renew --id KENNUNG [--force]   Zertifikat prüfen und bei Bedarf erneuern
   %s renew --all [--force]          alle eingerichteten Zertifikate
   %s list                           eingerichtete Zertifikate anzeigen
+  %s healthcheck                    prüft, ob der Dauerbetrieb antwortet (für Docker)
   %s version
 
-Ohne Befehl startet die Oberfläche. Die automatische Erneuerung ruft „renew“ über die Aufgabenplanung auf.
-`, appName, appVersion, appAuthor, appExeName, appExeName, appExeName, appExeName, appExeName, appExeName)
+Ohne Befehl startet die Oberfläche. Unter Windows ruft die Aufgabenplanung „renew“ auf, im Dauerbetrieb
+übernimmt das Programm den Zeitplan selbst. Einstellungen für „serve“ stehen in der README (ZA_*-Variablen).
+`, appName, appVersion, appAuthor, appExeName, appExeName, appExeName, appExeName, appExeName, appExeName, appExeName, appExeName, appExeName)
 }
 
 func main() {
@@ -37,6 +44,12 @@ func main() {
 	switch cmd {
 	case "ui":
 		os.Exit(cmdUI(args))
+	case "serve":
+		os.Exit(cmdServe(args))
+	case "passwd":
+		os.Exit(cmdPasswd(args))
+	case "healthcheck":
+		os.Exit(cmdHealthcheck(args))
 	case "renew":
 		os.Exit(cmdRenew(args))
 	case "list":
@@ -62,7 +75,6 @@ func cmdUI(args []string) int {
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
 	port := fs.String("port", "", "Port der Oberfläche (Standard 8765)")
 	noBrowser := fs.Bool("no-browser", false, "Browser nicht automatisch öffnen")
-	inBrowser := fs.Bool("browser", false, "Oberfläche im Browser statt als Windows-Programm anzeigen (Standard unter Windows: Programmfenster)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -79,11 +91,6 @@ func cmdUI(args []string) int {
 			return 1
 		}
 		return 0
-	}
-
-	// Unter Windows läuft die Oberfläche als normales Windows-Programm, ohne Webserver und Browser.
-	if plat.IsWindows() && !*inBrowser && os.Getenv("ZA_BROWSER") == "" {
-		return runNativeUI()
 	}
 
 	want := *port
@@ -112,7 +119,7 @@ func cmdUI(args []string) int {
 
 	fmt.Println("Die Oberfläche läuft nur auf diesem Computer (127.0.0.1).")
 	fmt.Println("Link:", link)
-	fmt.Println("\nEingabetaste: neuen Link erzeugen   |   Strg+C oder Fenster schließen: beenden")
+	fmt.Println("\nEingabetaste: neuen Link erzeugen   |   Strg+C: beenden")
 	if !*noBrowser && os.Getenv("ZA_NO_BROWSER") == "" {
 		if err := plat.OpenBrowser(link); err != nil {
 			fmt.Println("Der Browser konnte nicht geöffnet werden. Bitte den Link oben kopieren.")

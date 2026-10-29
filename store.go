@@ -22,8 +22,9 @@ import (
 type Profile struct {
 	ID           string       `json:"id"`
 	Domains      []string     `json:"domains"`
-	Method       string       `json:"method"`              // "standalone" (eingebauter Webserver) | "webroot" | "selfsigned"
-	ValidDays    int          `json:"validDays,omitempty"` // Gültigkeit selbstsignierter Zertifikate in Tagen
+	Method       string       `json:"method"`               // "standalone" (eingebauter Webserver) | "webroot" | "dns" (Cloudflare) | "selfsigned"
+	DNSAccount   string       `json:"dnsAccount,omitempty"` // nur „dns“: gewählter DNS-Zugang, leer = je Zone automatisch
+	ValidDays    int          `json:"validDays,omitempty"`  // Gültigkeit selbstsignierter Zertifikate in Tagen
 	Webroot      []string     `json:"webroot,omitempty"`
 	TargetDir    string       `json:"targetDir"`
 	FileName     string       `json:"fileName"` // Name der PFX-Datei (oder der ersten Datei)
@@ -52,6 +53,8 @@ type State struct {
 	LastMessage string    `json:"lastMessage"`
 	PfxSig      string    `json:"pfxSig"`
 	SyncedAt    time.Time `json:"syncedAt"`
+	AutoRunDay  string    `json:"autoRunDay,omitempty"` // Tag des letzten erfolgreichen Zeitplan-Laufs (Dauerbetrieb)
+	AutoNext    time.Time `json:"autoNext,omitempty"`   // frühester nächster Versuch nach einem Fehler
 }
 
 func profilesRoot() string { return filepath.Join(dataDir(), "profiles") }
@@ -214,7 +217,7 @@ func normalizeDomains(input string) ([]string, error) {
 			continue
 		}
 		if strings.HasPrefix(d, "*.") {
-			return nil, fmt.Errorf("„%s“ ist eine Wildcard-Domain. Wildcards lassen sich nur über einen DNS-Eintrag bestätigen, bitte den Reiter „Wildcard / DNS (manuell)“ verwenden.", d)
+			return nil, fmt.Errorf("„%s“ ist eine Wildcard-Domain. Wildcards lassen sich nur über einen DNS-Eintrag bestätigen. Bitte die Methode „DNS (Cloudflare)“ wählen oder den Reiter „Wildcard / DNS (manuell)“ verwenden.", d)
 		}
 		if net.ParseIP(d) != nil {
 			return nil, fmt.Errorf("„%s“ ist eine IP-Adresse. Dafür stellt Let’s Encrypt kein Zertifikat aus. Mit „Selbstsigniert“ sind IP-Adressen möglich.", d)

@@ -1,0 +1,50 @@
+# Certbumblebee im Dauerbetrieb.
+#
+# Vorbereitung (einmalig):
+#   mkdir -p secrets certs
+#   printf '%s' 'Ein-langes-Passwort-fuer-die-Oberflaeche' > secrets/za_password.txt
+#   openssl rand -base64 32 | tr -d '\n' > secrets/za_secret_key.txt
+#   chown -R 10001:10001 certs secrets   # der Container läuft als Benutzer 10001: er schreibt in „certs“
+#   chmod 400 secrets/*                  # und liest die Geheimnisse
+# Starten:  docker compose up -d
+# Oberfläche: http://localhost:8080  (nach außen nur über einen HTTPS-Proxy anbieten, siehe README)
+
+services:
+  certbumblebee:
+    image: ghcr.io/ddzhan19/certbumblebee:latest
+    # Selbst bauen statt Image laden:
+    # build: .
+    container_name: certbumblebee
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "127.0.0.1:8080:8080"     # Oberfläche; für den Zugriff aus dem Netz "8080:8080" oder einen Proxy verwenden
+      # - "80:80"                 # nur für Let's Encrypt über Port 80 („Dieses Programm beantwortet die Prüfung“)
+    environment:
+      TZ: Europe/Berlin           # Zeitzone des täglichen Zeitplans
+      ZA_PASSWORD_FILE: /run/secrets/za_password
+      ZA_SECRET_KEY_FILE: /run/secrets/za_secret_key
+      # ZA_CLOUDFLARE_TOKEN_FILE: /run/secrets/cf_token   # optional: Cloudflare-Zugang ohne Oberfläche vorgeben
+      # ZA_TRUST_PROXY: "1"       # nur hinter einem Reverse-Proxy, der X-Forwarded-For/-Proto setzt
+    volumes:
+      - data:/data                # Einrichtungen, Zugänge, Protokolle
+      - ./certs:/certs            # hierhin schreibt das Programm die Zertifikatsdateien
+    secrets:
+      - za_password
+      - za_secret_key
+      # - cf_token
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  data:
+
+secrets:
+  za_password:
+    file: ./secrets/za_password.txt
+  za_secret_key:
+    file: ./secrets/za_secret_key.txt
+  # cf_token:
+  #   file: ./secrets/cf_token.txt

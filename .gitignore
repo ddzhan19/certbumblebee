@@ -16,3 +16,8 @@
 /mock-acme/node_modules/
 /mock-acme/*.log
 /mock-acme/*.pid
+/secrets/
+/certs/
+/uitest/fakecf.log
+/uitest/fakecf.pid
+/uitest/serve.pid

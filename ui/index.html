@@ -267,6 +267,20 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
 .pk-list li button:hover { background: var(--honey-soft); }
 .pk-empty { padding: 14px 12px; color: var(--muted); }
 
+/* Anmeldung (Dauerbetrieb) */
+#login-screen { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; overflow: auto; background: var(--bg); }
+#login-screen .sheet { width: min(440px, 100%); }
+#login-screen .brand { margin-bottom: 20px; }
+
+/* DNS-Zugänge */
+.howto { margin: 0 0 24px; }
+.howto ol { margin: 8px 0 0; padding-left: 22px; }
+.howto li { margin: 4px 0; }
+.zonelist { margin: 8px 0 0; padding: 0; list-style: none; }
+.zonelist li { padding: 3px 0; overflow-wrap: anywhere; }
+.zonelist .y { color: var(--ok); font-weight: 600; }
+.zonelist .n { color: var(--bad); font-weight: 600; }
+
 /* Fuß */
 .foot-app { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: .875rem; }
 .foot-app b { color: var(--ink); font-weight: 650; }
@@ -321,7 +335,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     </div>
     <p class="privacy">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
-      <span>Läuft nur auf diesem Rechner. Schlüssel und Passwörter bleiben hier; gesprochen wird nur mit dem Zertifikatsanbieter.</span>
+      <span id="privacy-text">Läuft nur auf diesem Rechner. Schlüssel und Passwörter bleiben hier; gesprochen wird nur mit dem Zertifikatsanbieter.</span>
     </p>
   </header>
 
@@ -330,6 +344,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
   <div class="tabs" role="tablist" aria-label="Funktion">
     <button class="tab" role="tab" id="tab-issue" aria-selected="true" aria-controls="view-issue">Ausstellen</button>
     <button class="tab" role="tab" id="tab-overview" aria-selected="false" aria-controls="view-overview" tabindex="-1">Übersicht</button>
+    <button class="tab" role="tab" id="tab-dns" aria-selected="false" aria-controls="view-dns" tabindex="-1">DNS-Zugänge</button>
     <button class="tab" role="tab" id="tab-wild" aria-selected="false" aria-controls="view-wild" tabindex="-1">Wildcard / DNS (manuell)</button>
     <button class="tab" role="tab" id="tab-convert" aria-selected="false" aria-controls="view-convert" tabindex="-1">PFX umwandeln</button>
   </div>
@@ -347,7 +362,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
             <div class="field">
               <label class="lbl" for="domains" id="domains-lbl">Für welche Domains soll das Zertifikat gelten?</label>
               <textarea id="domains" rows="3" spellcheck="false" autocomplete="off" placeholder="www.beispiel.de&#10;beispiel.de"></textarea>
-              <p class="hint" id="domains-hint">Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag gibt es den Tab „Wildcard / DNS (manuell)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.</p>
+              <p class="hint" id="domains-hint">Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag wählen Sie unten „DNS (Cloudflare)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.</p>
             </div>
           </fieldset>
 
@@ -356,6 +371,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
             <div class="choices">
               <label class="choice"><input type="radio" name="method" value="standalone" checked><div><b>Let’s Encrypt, dieses Programm beantwortet die Prüfung selbst</b><span>Es öffnet kurz Port 80 auf diesem Server. Dafür darf dort kein anderer Webserver laufen, und Port 80 muss aus dem Internet erreichbar sein.</span></div></label>
               <label class="choice"><input type="radio" name="method" value="webroot"><div><b>Let’s Encrypt, ein vorhandener Webserver beantwortet die Prüfung (IIS, nginx, Apache)</b><span>Das Programm legt kurz eine Prüfdatei im Webordner ab. Port 80 des Webservers muss aus dem Internet erreichbar sein.</span></div></label>
+              <label class="choice"><input type="radio" name="method" value="dns"><div><b>Let’s Encrypt, Bestätigung per DNS bei Cloudflare (auch Wildcards)</b><span>Das Programm setzt die nötigen DNS-Einträge über die Cloudflare-API selbst, je Zone, und löscht sie danach wieder. Kein Port 80 nötig, Wildcards wie *.beispiel.de sind möglich, und die Erneuerung läuft vollautomatisch.</span></div></label>
               <label class="choice"><input type="radio" name="method" value="selfsigned"><div><b>Selbstsigniert (für interne Server)</b><span>Das Programm erstellt das Zertifikat selbst. Es braucht kein Internet, keine öffentliche Domain und keinen Port 80. Browser und Programme vertrauen ihm erst, wenn Sie es dort als vertrauenswürdig installieren.</span></div></label>
             </div>
             <div class="sub" id="m-selfsigned" hidden>
@@ -369,6 +385,16 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
                   <option value="3650">10 Jahre</option>
                 </select>
                 <p class="hint">Bei jeder Erneuerung entsteht ein neues Zertifikat mit neuem Schlüssel. Geräte, die dem alten Zertifikat vertrauen, müssen dem neuen erneut vertrauen. Wählen Sie deshalb lieber eine lange Gültigkeit.</p>
+              </div>
+            </div>
+            <div class="sub" id="m-dns" hidden>
+              <div class="notice info" id="dns-none" hidden style="margin-bottom:12px"><p><b>Es ist noch kein Cloudflare-Zugang hinterlegt.</b></p><p>Dafür braucht das Programm einen API-Token.</p><div class="actions"><button type="button" class="btn small primary" id="dns-goto">DNS-Zugang einrichten</button></div></div>
+              <div class="field" style="margin-bottom:0">
+                <label class="lbl" for="dnsaccount">Welcher Zugang?</label>
+                <select id="dnsaccount"><option value="">Automatisch: für jede Domain die passende Zone suchen</option></select>
+                <p class="hint">Bei mehreren Cloudflare-Konten sucht das Programm für jede Domain die Zone in allen Zugängen. Die Domains müssen bei Cloudflare als Zone angelegt sein.</p>
+                <div class="actions"><button type="button" class="btn small" id="dns-check">Zonen prüfen</button></div>
+                <div id="dns-check-result" hidden></div>
               </div>
             </div>
             <div class="sub" id="m-standalone">
@@ -395,7 +421,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
                 <button type="button" class="btn" id="target-browse">Durchsuchen …</button>
                 <button type="button" class="btn" id="target-test">Zugriff testen</button>
               </div>
-              <p class="hint">Lokaler Ordner oder Netzwerkfreigabe im Format \\server\freigabe\ordner. Zugeordnete Laufwerke wie Z: sieht die automatische Aufgabe nicht.</p>
+              <p class="hint" id="target-hint">Lokaler Ordner oder Netzwerkfreigabe im Format \\server\freigabe\ordner. Zugeordnete Laufwerke wie Z: sieht die automatische Aufgabe nicht.</p>
               <p class="test-result" id="target-result" hidden></p>
             </div>
 
@@ -432,20 +458,20 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
                 <button type="button" class="btn" id="pw-gen">Zufällig</button>
                 <button type="button" class="btn" id="pw-show" aria-pressed="false">Anzeigen</button>
               </div>
-              <p class="hint">Das Passwort wird für die Erneuerung geschützt auf diesem Rechner gespeichert (Windows-Datenschutz-API, nur für Administratoren und das Systemkonto lesbar). Bitte zusätzlich selbst notieren, Sie brauchen es beim Import.</p>
+              <p class="hint" id="pfxpw-hint">Das Passwort wird für die Erneuerung geschützt auf diesem Rechner gespeichert (Windows-Datenschutz-API, nur für Administratoren und das Systemkonto lesbar). Bitte zusätzlich selbst notieren, Sie brauchen es beim Import.</p>
             </div>
           </fieldset>
 
           <fieldset class="group" id="fs-auto">
             <legend>Erneuerung</legend>
-            <label class="check"><input type="checkbox" id="auto" checked><span>Automatisch erneuern<small>Das Programm legt dafür eine Aufgabe in der Windows-Aufgabenplanung an. Sie prüft täglich und erneuert, sobald weniger als ein Drittel der Laufzeit übrig ist (bei Let’s Encrypt etwa 30 Tage vor Ablauf).</small></span></label>
+            <label class="check"><input type="checkbox" id="auto" checked><span>Automatisch erneuern<small id="auto-small">Das Programm legt dafür eine Aufgabe in der Windows-Aufgabenplanung an. Sie prüft täglich und erneuert, sobald weniger als ein Drittel der Laufzeit übrig ist (bei Let’s Encrypt etwa 30 Tage vor Ablauf).</small></span></label>
             <div class="sub" id="auto-wrap">
               <div class="cols">
                 <div class="field">
                   <label class="lbl" for="tasktime">Uhrzeit der täglichen Prüfung</label>
                   <input id="tasktime" type="time" value="03:00">
                 </div>
-                <div class="field">
+                <div class="field" id="runas-field">
                   <label class="lbl" for="runas">Konto der Aufgabe</label>
                   <select id="runas"><option value="system">Systemkonto (empfohlen)</option><option value="user">Bestimmtes Konto …</option></select>
                 </div>
@@ -458,7 +484,8 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
                 <p class="hint" style="margin-top:-8px">Das Konto braucht das Recht „Als Batchauftrag anmelden“. Das Passwort geht nur an die Aufgabenplanung und wird nicht gespeichert.</p>
               </div>
               <div class="notice info" id="unc-note" hidden style="margin-top:12px"></div>
-              <div class="field" style="margin-top:12px">
+              <p class="hint" id="auto-note" hidden></p>
+              <div class="field" style="margin-top:12px" id="taskname-field">
                 <label class="lbl" for="taskname">Name der Aufgabe (optional)</label>
                 <input id="taskname" type="text" spellcheck="false" autocomplete="off" placeholder="Certbumblebee Erneuerung beispiel-de">
               </div>
@@ -532,6 +559,47 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     <div class="cards" id="cards"></div>
   </section>
 
+  <!-- ===== DNS-Zugänge ===== -->
+  <section id="view-dns" role="tabpanel" aria-labelledby="tab-dns" hidden>
+    <div class="sheet">
+      <h2>DNS-Zugänge (Cloudflare)</h2>
+      <p class="lead">Mit einem Cloudflare-API-Token setzt Certbumblebee die DNS-Einträge für die Bestätigung selbst, je Zone, und löscht sie danach wieder. So gehen Wildcards (*.beispiel.de), und die Erneuerung läuft ohne Zutun. Der Token wird verschlüsselt auf dem Server gespeichert und nie wieder angezeigt.</p>
+      <details class="more howto">
+        <summary>So legen Sie den Token bei Cloudflare an</summary>
+        <ol>
+          <li>Bei Cloudflare anmelden, oben rechts das Profil öffnen, <b>API-Tokens</b>, dann <b>Token erstellen</b>.</li>
+          <li>Die Vorlage <b>Zone-DNS bearbeiten</b> („Edit zone DNS“) verwenden oder einen eigenen Token anlegen.</li>
+          <li>Berechtigungen: <b>Zone – DNS – Bearbeiten</b> und <b>Zone – Zone – Lesen</b>.</li>
+          <li>Zonenressourcen: die Zone(n), für die Zertifikate entstehen sollen, oder „Alle Zonen“.</li>
+          <li>Token erstellen und kopieren. Cloudflare zeigt ihn nur einmal.</li>
+        </ol>
+        <p class="hint">Der Token braucht nur diese beiden Rechte. Ein „Global API Key“ wird nicht benutzt und sollte auch nicht verwendet werden.</p>
+      </details>
+      <form id="form-dns" novalidate>
+        <fieldset class="group">
+          <legend>Neuen Zugang hinterlegen</legend>
+          <div class="cols">
+            <div class="field">
+              <label class="lbl" for="dns-name">Name</label>
+              <input id="dns-name" type="text" autocomplete="off" spellcheck="false" placeholder="Cloudflare Firma">
+            </div>
+            <div class="field">
+              <label class="lbl" for="dns-token">API-Token</label>
+              <input id="dns-token" type="password" autocomplete="new-password" spellcheck="false">
+            </div>
+          </div>
+          <div class="notice err" id="dns-err" role="alert" hidden></div>
+          <div id="dns-ok" hidden></div>
+          <div class="actions"><button type="submit" class="btn primary" id="dns-save">Prüfen und speichern</button></div>
+        </fieldset>
+      </form>
+      <h3 style="font:650 1.0625rem/1.3 var(--head);margin:8px 0 12px">Hinterlegte Zugänge</h3>
+      <div id="dns-msg"></div>
+      <div class="cards" id="dns-list"></div>
+      <p class="hint" id="dns-env-hint" style="margin-top:14px"></p>
+    </div>
+  </section>
+
   <!-- ===== Wildcard / DNS (manuell) ===== -->
   <section id="view-wild" role="tabpanel" aria-labelledby="tab-wild" hidden>
     <div class="wizard">
@@ -544,7 +612,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       <div class="sheet">
         <form class="panel" data-step="1" id="wform" novalidate>
           <h2 tabindex="-1">Wildcard-Zertifikat holen</h2>
-          <p class="lead">Ein Wildcard-Zertifikat (*.beispiel.de) deckt alle Subdomains ab. Let’s Encrypt prüft es nur über einen DNS-Eintrag, den Sie bei Ihrem DNS-Anbieter selbst anlegen. Dieses Programm kann ihn nicht setzen, deshalb gibt es hier keine automatische Erneuerung: Etwa alle 60 Tage müssen Sie den Vorgang wiederholen.</p>
+          <p class="lead">Ein Wildcard-Zertifikat (*.beispiel.de) deckt alle Subdomains ab. Let’s Encrypt prüft es nur über einen DNS-Eintrag, den Sie bei Ihrem DNS-Anbieter selbst anlegen. Liegt die Domain bei Cloudflare, geht das automatisch: unter „Ausstellen“ die Methode „DNS (Cloudflare)“ wählen. Hier ist der manuelle Weg für alle anderen DNS-Anbieter. Er hat keine automatische Erneuerung: Etwa alle 60 Tage müssen Sie den Vorgang wiederholen.</p>
           <fieldset id="wfs" style="border:0;padding:0;margin:0;min-width:0">
             <div class="field">
               <label class="lbl" for="wdomains">Domains</label>
@@ -713,7 +781,34 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     <span><b id="foot-name">Certbumblebee</b> <span id="foot-version"></span> · Programmiert von Dzhan Chelebi</span>
     <span class="data" id="foot-data"></span>
     <button type="button" class="btn small" id="quit">Programm beenden</button>
+    <button type="button" class="btn small" id="logout" hidden>Abmelden</button>
   </footer>
+</div>
+
+<!-- Anmeldung (nur im Dauerbetrieb) -->
+<div id="login-screen" hidden>
+  <form class="sheet" id="login-form" novalidate>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" role="img" aria-label="Certbumblebee">
+        <defs><clipPath id="bodyclip2"><ellipse cx="24" cy="28.5" rx="7.2" ry="10.5"/></clipPath></defs>
+        <path d="M24 2 43 13v22L24 46 5 35V13z" fill="#1c1b19" stroke="#f5b81c" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="15.5" cy="22" rx="8" ry="4.4" transform="rotate(-35 15.5 22)" fill="#fff" opacity=".88"/>
+        <ellipse cx="32.5" cy="22" rx="8" ry="4.4" transform="rotate(35 32.5 22)" fill="#fff" opacity=".88"/>
+        <ellipse cx="24" cy="28.5" rx="7.2" ry="10.5" fill="#f5b81c"/>
+        <g clip-path="url(#bodyclip2)" fill="#1c1b19"><rect x="14" y="26" width="20" height="3.2"/><rect x="14" y="32.2" width="20" height="3.2"/></g>
+        <circle cx="24" cy="15.5" r="4.2" fill="#f5b81c"/>
+      </svg>
+      <div><h1>Certbumblebee</h1></div>
+    </div>
+    <h2 tabindex="-1" style="margin-top:0">Anmelden</h2>
+    <div class="field">
+      <label class="lbl" for="login-pw">Passwort</label>
+      <input id="login-pw" type="password" autocomplete="current-password" spellcheck="false">
+      <p class="hint">Beim ersten Start erzeugt das Programm ein Passwort und zeigt es einmal im Protokoll an (Docker: <code>docker logs</code>). Ändern lässt es sich mit <code>certbumblebee passwd</code>.</p>
+    </div>
+    <div class="notice err" id="login-err" role="alert" hidden></div>
+    <div class="actions"><button type="submit" class="btn primary" id="login-go">Anmelden</button></div>
+  </form>
 </div>
 
 <!-- Ordnerauswahl -->
@@ -1266,6 +1361,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     catch (e) { programGone('Das Programm antwortet nicht mehr. Wurde es beendet oder das Fenster geschlossen?'); throw ApiError('Keine Verbindung zum Programm.', 0, null); }
     var data = null;
     try { data = await res.json(); } catch (e) { /* kein JSON */ }
+    if (res.status === 401 && data && data.login) { showLogin(); throw ApiError('Bitte anmelden.', 401, data); }
     if (res.status === 401 || res.status === 403 && data == null) { programGone('Die Sitzung ist abgelaufen.'); throw ApiError('Sitzung abgelaufen.', res.status, data); }
     if (!res.ok) throw ApiError((data && data.error) || ('Fehler ' + res.status), res.status, data);
     return data;
@@ -1338,7 +1434,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
   }
 
   /* ---------- Tabs ---------- */
-  var TABS = ['issue', 'overview', 'wild', 'convert'];
+  var TABS = ['issue', 'overview', 'dns', 'wild', 'convert'];
   function selectTab(which) {
     TABS.forEach(function (k) {
       var on = k === which;
@@ -1346,6 +1442,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       $('#view-' + k).hidden = !on;
     });
     if (which === 'overview') loadOverview();
+    if (which === 'dns') loadDNS();
   }
   $$('.tab').forEach(function (t) {
     t.addEventListener('click', function () { selectTab(t.id.replace('tab-', '')); });
@@ -1362,16 +1459,19 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
   window.addEventListener('beforeunload', function (e) { if (issuing || running > 0) { e.preventDefault(); e.returnValue = ''; } });
 
   function syncMethod() {
-    var m = $('input[name="method"]:checked').value, self = m === 'selfsigned';
-    $('#m-standalone').hidden = m !== 'standalone'; $('#m-webroot').hidden = m !== 'webroot'; $('#m-selfsigned').hidden = !self;
+    var m = $('input[name="method"]:checked').value, self = m === 'selfsigned', dns = m === 'dns';
+    $('#m-standalone').hidden = m !== 'standalone'; $('#m-webroot').hidden = m !== 'webroot'; $('#m-selfsigned').hidden = !self; $('#m-dns').hidden = !dns;
     $('#acme-only').hidden = self; $('#tos-wrap').hidden = self;
     $('#lbl-chain').hidden = self;
     if (self) $('input[name="out"][value="chain"]').checked = false;
     $('#domains-lbl').textContent = self ? 'Für welche Namen soll das Zertifikat gelten?' : 'Für welche Domains soll das Zertifikat gelten?';
-    $('#domains').placeholder = self ? 'server.firma.local\nintranet\n192.168.1.20' : 'www.beispiel.de\nbeispiel.de';
+    $('#domains').placeholder = self ? 'server.firma.local\nintranet\n192.168.1.20' : dns ? '*.beispiel.de\nbeispiel.de' : 'www.beispiel.de\nbeispiel.de';
     $('#domains-hint').textContent = self
       ? 'Ein Name pro Zeile. Erlaubt sind Hostnamen (auch ohne Endung wie „intranet“), Wildcards (*.firma.local) und IP-Adressen. Der Name muss so lauten, wie Clients den Server aufrufen, sonst warnt der Browser.'
-      : 'Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag gibt es den Tab „Wildcard / DNS (manuell)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.';
+      : dns
+        ? 'Eine Domain pro Zeile, auch Wildcards (*.beispiel.de). Die Hauptdomain (beispiel.de) gehört nicht zur Wildcard und muss extra eingetragen werden. Die Domains müssen bei Cloudflare als Zone liegen; sie brauchen keinen öffentlichen Eintrag und keinen offenen Port 80.'
+        : 'Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag wählen Sie unten „DNS (Cloudflare)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.';
+    if (dns) hideEl($('#dns-check-result'));
     syncOuts();
   }
   $$('input[name="method"]').forEach(function (r) { r.addEventListener('change', syncMethod); });
@@ -1454,11 +1554,13 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     var domains = $('#domains').value.trim();
     var self = $('input[name="method"]:checked').value === 'selfsigned';
     if (!domains) throw new Error(self ? 'Bitte mindestens einen Namen oder eine IP-Adresse eintragen.' : 'Bitte mindestens eine Domain eintragen.');
-    if (!self && /(^|[\s,;])\*\./.test(domains)) throw new Error('Wildcard-Domains (*.…) gehen nur im Tab „Wildcard / DNS (manuell)“, weil sie einen DNS-Eintrag brauchen.');
+    var isDns = $('input[name="method"]:checked').value === 'dns';
+    if (!self && !isDns && /(^|[\s,;])\*\./.test(domains)) throw new Error('Wildcard-Domains (*.…) brauchen einen DNS-Eintrag. Wählen Sie dafür „DNS (Cloudflare)“ oder nutzen Sie den Tab „Wildcard / DNS (manuell)“.');
     var req = {
       domains: domains,
       method: $('input[name="method"]:checked').value,
       webroot: $('#webroot').value,
+      dnsAccount: isDns ? $('#dnsaccount').value : '',
       targetDir: $('#target').value.trim(),
       fileName: $('#filename').value.trim(),
       outputs: checkedOuts(),
@@ -1475,12 +1577,13 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       user: $('#user').value.trim(),
       userPassword: $('#userpw').value,
       taskName: $('#taskname').value.trim(),
-      firewall: $('#firewall').checked && INFO.windows && !self,
+      firewall: $('#firewall').checked && INFO.windows && $('input[name="method"]:checked').value === 'standalone',
       validDays: +$('#validdays').value,
       replace: false
     };
     if (self) { req.server = 'prod'; req.email = ''; req.outputs = req.outputs.filter(function (k) { return k !== 'chain'; }); }
-    if (req.method === 'webroot' && !req.webroot.trim()) throw new Error('Bitte den Webordner angeben (z. B. C:\\inetpub\\wwwroot).');
+    if (req.method === 'webroot' && !req.webroot.trim()) throw new Error(INFO.windows ? 'Bitte den Webordner angeben (z. B. C:\\inetpub\\wwwroot).' : 'Bitte den Webordner angeben (z. B. /var/www/html).');
+    if (isDns && !dnsAccounts.length) throw new Error('Für „DNS (Cloudflare)“ muss zuerst ein Zugang hinterlegt werden (Reiter „DNS-Zugänge“).');
     if (!req.targetDir) throw new Error('Bitte den Zielordner für die Dateien angeben.');
     if (!req.outputs.length) throw new Error('Bitte mindestens eine Datei auswählen, die im Zielordner liegen soll.');
     if (req.outputs.indexOf('pfx') >= 0 && !req.password) throw new Error('Bitte ein Passwort für die PFX-Datei vergeben (oder „Zufällig“ wählen).');
@@ -1567,8 +1670,8 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
         return '<li><code>' + esc(name) + '</code><span class="kind">' + esc(fileKindLabel(name, req)) + '</span></li>';
       }).join('') + '</ul>';
     }
-    items.push(self ? 'Selbstsigniertes Zertifikat (keine Bestätigung durch einen Anbieter nötig)' : req.method === 'webroot' ? 'Bestätigung über den Webserver (Ordner: ' + req.webroot.trim().split(/\r?\n/).filter(Boolean).join(', ') + ')' : 'Bestätigung durch dieses Programm über Port 80');
-    if (req.autoRenew) items.push('Tägliche Prüfung um ' + req.taskTime + ' Uhr in der Aufgabenplanung. ' + (self ? 'Erneuert wird 30 Tage vor Ablauf (bei kurzer Gültigkeit, sobald nur noch ein Drittel übrig ist).' : 'Erneuert wird erst, wenn weniger als ein Drittel der Laufzeit übrig ist.'));
+    items.push(self ? 'Selbstsigniertes Zertifikat (keine Bestätigung durch einen Anbieter nötig)' : req.method === 'dns' ? 'Bestätigung per DNS-Eintrag über Cloudflare (die Einträge sind nach der Prüfung wieder gelöscht)' : req.method === 'webroot' ? 'Bestätigung über den Webserver (Ordner: ' + req.webroot.trim().split(/\r?\n/).filter(Boolean).join(', ') + ')' : 'Bestätigung durch dieses Programm über Port 80');
+    if (req.autoRenew) items.push('Tägliche Prüfung um ' + req.taskTime + ' Uhr ' + (INFO.scheduler === 'builtin' ? 'durch das Programm (Zeitplan, Zeitzone ' + (INFO.timezone || '') + '). ' : 'in der Aufgabenplanung. ') + (self ? 'Erneuert wird 30 Tage vor Ablauf (bei kurzer Gültigkeit, sobald nur noch ein Drittel übrig ist).' : 'Erneuert wird erst, wenn weniger als ein Drittel der Laufzeit übrig ist.'));
     else items.push('Keine automatische Erneuerung eingerichtet. Zum Erneuern in der Übersicht „Jetzt erneuern“ wählen.');
     $('#done-info').innerHTML = filesHTML + '<p style="margin-top:18px"><b>Eingerichtet:</b></p><ul class="plain">' + items.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
     $('#done-h').focus();
@@ -1629,8 +1732,10 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
         return '<li><code>' + esc(x.name) + '</code><span class="kind">' + esc(x.label) + '</span> <span class="st ' + (x.found ? 'ok' : 'no') + '">' + (x.found ? 'vorhanden' : 'nicht gefunden') + '</span></li>';
       }).join('') + '</ul>']);
     }
-    f.push(p.method === 'selfsigned' ? ['Art', 'Selbstsigniert, nicht öffentlich vertrauenswürdig'] : ['Bestätigung', p.method === 'webroot' ? 'Webserver, Ordner: ' + esc((p.webroot || []).join(', ')) : 'Dieses Programm über Port 80']);
-    if (p.task.enabled) {
+    f.push(p.method === 'selfsigned' ? ['Art', 'Selbstsigniert, nicht öffentlich vertrauenswürdig'] : ['Bestätigung', p.method === 'dns' ? 'DNS-Eintrag über Cloudflare (Zugang: ' + esc(p.dnsName || '') + ')' : p.method === 'webroot' ? 'Webserver, Ordner: ' + esc((p.webroot || []).join(', ')) : 'Dieses Programm über Port 80']);
+    if (p.task.enabled && INFO.scheduler === 'builtin') {
+      f.push(['Erneuerung', 'Täglich um ' + esc(p.task.time) + ' Uhr durch das Programm <span class="st ok">Zeitplan aktiv</span>']);
+    } else if (p.task.enabled) {
       f.push(['Erneuerung', 'Täglich um ' + esc(p.task.time) + ' Uhr, Konto ' + esc(p.task.runAs) + ' <span class="st ' + (p.task.exists ? 'ok' : 'no') + '">' + (p.task.exists ? 'Aufgabe vorhanden' : 'Aufgabe fehlt in der Aufgabenplanung') + '</span>']);
     } else f.push(['Erneuerung', 'Nicht automatisch. Bitte regelmäßig „Jetzt erneuern“ wählen.']);
     if (p.lastRun) f.push(['Letzter Lauf', esc(fmtDateTime(p.lastRun)) + ' – <span class="st ' + (p.lastResult === 'fehler' ? 'no' : 'ok') + '">' + esc(RESULT_TEXT[p.lastResult] || p.lastResult || '') + '</span>' + (p.lastMessage ? '<br><small>' + esc(p.lastMessage) + '</small>' : '')]);
@@ -1639,7 +1744,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       '<dl class="facts">' + f.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join('') + '</dl>' +
       '<div class="actions">' +
       '<button type="button" class="btn small primary" data-act="renew">Jetzt prüfen und erneuern</button>' +
-      (p.task.enabled ? '<button type="button" class="btn small" data-act="tasktest">Aufgabe testen</button>' : '') +
+      (p.task.enabled && INFO.windows ? '<button type="button" class="btn small" data-act="tasktest">Aufgabe testen</button>' : '') +
       '<button type="button" class="btn small" data-act="log">Protokoll</button>' +
       '<details class="menu"><summary class="btn small">Mehr</summary><div class="pop"><button type="button" class="btn small" data-act="force">Neu ausstellen (erzwingen)</button><button type="button" class="btn small danger" data-act="delete">Einrichtung löschen …</button></div></details>' +
       '</div><div class="jobbox" hidden><ul class="tasks" aria-live="polite"></ul><div class="jobmsg"></div></div><pre class="logbox" hidden></pre></article>';
@@ -1720,8 +1825,8 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
   async function deleteProfile(card, id) {
     var p = profiles.filter(function (x) { return x.id === id; })[0];
     var parts = ['<p>Die Einrichtung für <b>' + esc(p && p.domains ? p.domains.join(', ') : id) + '</b> wird entfernt:</p><ul class="plain">'];
-    if (p && p.task && p.task.enabled) parts.push('<li>Die Aufgabe in der Aufgabenplanung</li>');
-    parts.push((p && p.method === 'selfsigned' ? '' : '<li>Die Firewall-Regel für Port 80 (falls angelegt)</li>') + '<li>Schlüssel' + (p && p.method === 'selfsigned' ? '' : ', Konto') + ' und gespeichertes Passwort im Arbeitsordner</li></ul><p style="margin-top:10px">Die Dateien im Zielordner bleiben erhalten. Ein bereits importiertes Zertifikat läuft ganz normal bis zum Ablaufdatum weiter.</p>');
+    if (p && p.task && p.task.enabled && INFO.windows) parts.push('<li>Die Aufgabe in der Aufgabenplanung</li>');
+    parts.push((p && (p.method === 'selfsigned' || p.method === 'dns' || !INFO.windows) ? '' : '<li>Die Firewall-Regel für Port 80 (falls angelegt)</li>') + '<li>Schlüssel' + (p && p.method === 'selfsigned' ? '' : ', Konto') + ' und gespeichertes Passwort im Arbeitsordner</li></ul><p style="margin-top:10px">Die Dateien im Zielordner bleiben erhalten. Ein bereits importiertes Zertifikat läuft ganz normal bis zum Ablaufdatum weiter.</p>');
     var ok = await confirmBox('Einrichtung löschen?', parts.join(''), 'Löschen', true);
     if (!ok) return;
     try {
@@ -1738,6 +1843,13 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       auto.checked = false; auto.disabled = true; $('#auto-wrap').hidden = true; $('#firewall').disabled = true; $('#firewall').checked = false;
     }
     if (!INFO.windows) { $('#fw-wrap').hidden = true; }
+    if (INFO.scheduler === 'builtin') {
+      $('#auto-small').textContent = 'Das Programm prüft täglich zur eingestellten Uhrzeit (Zeitzone ' + (INFO.timezone || 'des Servers') + ') und erneuert, sobald weniger als ein Drittel der Laufzeit übrig ist (bei Let’s Encrypt etwa 30 Tage vor Ablauf). Verpasste Läufe, etwa nach einem Neustart, holt es nach.';
+      $('#runas-field').hidden = true; $('#user-wrap').hidden = true; $('#taskname-field').hidden = true;
+    } else if (INFO.scheduler === 'none') {
+      auto.checked = false; auto.disabled = true; $('#auto-wrap').hidden = true;
+      $('#auto-small').textContent = 'Auf diesem System gibt es keine Aufgabenplanung. Die Erneuerung übernimmt der Dauerbetrieb („certbumblebee serve“, z. B. als Docker-Container) oder ein Aufruf von „certbumblebee renew --all“ per cron oder systemd-Timer.';
+    }
     syncUnc();
   }
 
@@ -1748,6 +1860,21 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     $('#foot-name').textContent = INFO.name || 'Certbumblebee';
     $('#foot-version').textContent = 'Version ' + (INFO.version || '');
     $('#foot-data').textContent = 'Daten: ' + (INFO.dataDir || '');
+    if (INFO.server) {
+      $('#privacy-text').textContent = 'Läuft auf Ihrem Server. Schlüssel, Tokens und Passwörter bleiben dort; gesprochen wird nur mit dem Zertifikatsanbieter und Cloudflare.';
+      $('#quit').hidden = true; $('#logout').hidden = false;
+      var local = ['localhost', '127.0.0.1', '[::1]'].indexOf(location.hostname) >= 0;
+      if (location.protocol === 'http:' && !local) banner('warn', '<p><b>Diese Verbindung ist nicht verschlüsselt.</b></p><p>Das Passwort und die Eingaben gehen im Klartext durch das Netz. Bitte die Oberfläche nur über HTTPS erreichbar machen (Reverse-Proxy mit Zertifikat davor oder ZA_TLS_CERT/ZA_TLS_KEY).</p>');
+    }
+    if (!INFO.windows) {
+      $('#target').placeholder = '/certs';
+      $('#webroot').placeholder = '/var/www/html';
+      $('#pk-path').placeholder = 'Pfad eingeben, z. B. /certs';
+      $('#target-hint').textContent = INFO.container
+        ? 'Ordner im Container, z. B. /certs. Binden Sie ihn als Volume ein, damit die Dateien auf dem Host oder bei anderen Containern ankommen.'
+        : 'Absoluter Ordnerpfad auf diesem Server, z. B. /etc/ssl/certbumblebee.';
+      $('#pfxpw-hint').textContent = 'Das Passwort wird für die Erneuerung verschlüsselt im Datenordner gespeichert (AES-256). Bitte zusätzlich selbst notieren, Sie brauchen es beim Import.';
+    }
     if (INFO.windows && !INFO.elevated) {
       banner('warn', '<p><b>Das Programm läuft ohne Administratorrechte.</b></p><p>Automatische Erneuerung und Firewall-Regel brauchen sie. Bitte Certbumblebee beenden und neu starten; Windows fragt dann nach der Erlaubnis.</p>');
     }
@@ -1757,6 +1884,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       banner('err', '<p><b>Wildcard und PFX-Umwandlung sind nicht verfügbar:</b> ' + esc(why) + '</p>');
     }
     applyEnv(); syncMethod();
+    loadDNS();
     loadOverview();
   }
   $('#quit').addEventListener('click', async function () {
@@ -1765,6 +1893,121 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     try { await api('POST', '/api/quit', {}); } catch (e) { /* wird beendet */ }
     ended = true;
     document.body.innerHTML = '<div class="app"><div class="sheet"><h2>Certbumblebee wurde beendet</h2><p class="lead">Sie können dieses Fenster schließen. Zum erneuten Öffnen die Exe starten.</p></div></div>';
+  });
+
+  /* ---------- Anmeldung (Dauerbetrieb) ---------- */
+  function showLogin() {
+    var l = $('#login-screen');
+    if (!l.hidden) return;
+    l.hidden = false; hideEl($('#login-err'));
+    $('#login-pw').value = ''; $('#login-pw').focus();
+  }
+  $('#login-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var pw = $('#login-pw').value, err = $('#login-err'), btn = $('#login-go');
+    if (!pw) { showErr(err, new Error('Bitte das Passwort eingeben.')); return; }
+    btn.disabled = true; hideEl(err);
+    try {
+      var res = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-ZA': '1' }, body: JSON.stringify({ password: pw }) });
+      var data = null; try { data = await res.json(); } catch (x) { /* kein JSON */ }
+      if (!res.ok) { showErr(err, new Error((data && data.error) || 'Die Anmeldung ist fehlgeschlagen.')); $('#login-pw').select(); }
+      else { $('#login-screen').hidden = true; $('#login-pw').value = ''; await init(); if (!$('#view-overview').hidden) loadOverview(); }
+    } catch (x) { showErr(err, new Error('Keine Verbindung zum Programm.')); }
+    btn.disabled = false;
+  });
+  $('#logout').addEventListener('click', async function () {
+    try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-ZA': '1' }, body: '{}' }); } catch (e) { /* egal */ }
+    location.reload();
+  });
+
+  /* ---------- DNS-Zugänge ---------- */
+  var dnsAccounts = [];
+  function fillDnsSelect() {
+    var sel = $('#dnsaccount'), cur = sel.value;
+    sel.innerHTML = '<option value="">Automatisch: für jede Domain die passende Zone suchen</option>' + dnsAccounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('');
+    sel.value = dnsAccounts.some(function (a) { return a.id === cur; }) ? cur : '';
+    $('#dns-none').hidden = dnsAccounts.length > 0;
+    $('#dnsaccount').closest('.field').hidden = dnsAccounts.length === 0;
+  }
+  function zonesHTML(zones, total) {
+    if (!zones.length) return '';
+    var more = total > zones.length ? ' und ' + (total - zones.length) + ' weitere' : '';
+    return 'Sichtbare Zonen: ' + zones.map(esc).join(', ') + more + '.';
+  }
+  function renderDNS() {
+    var box = $('#dns-list');
+    if (!dnsAccounts.length) { box.innerHTML = '<div class="empty"><p>Noch kein Zugang hinterlegt.</p></div>'; }
+    else box.innerHTML = dnsAccounts.map(function (a) {
+      var f = [['Anbieter', 'Cloudflare']];
+      if (a.created && a.created.indexOf('0001') !== 0) f.push(['Angelegt', esc(fmtDate(a.created))]);
+      f.push(['Verwendet von', a.usedBy && a.usedBy.length ? esc(a.usedBy.join(', ')) : 'noch keinem Zertifikat']);
+      return '<article class="card" data-id="' + esc(a.id) + '" data-health="ok"><header><h3>' + esc(a.name) + '</h3>' + (a.fromEnv ? '<span class="chip">Aus der Umgebung</span>' : '') + '</header>' +
+        '<dl class="facts">' + f.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join('') + '</dl>' +
+        '<div class="actions"><button type="button" class="btn small" data-dact="test">Verbindung testen</button>' +
+        (a.fromEnv ? '' : '<button type="button" class="btn small danger" data-dact="delete">Löschen …</button>') + '</div><div class="dres" hidden></div></article>';
+    }).join('');
+    var hasEnv = dnsAccounts.some(function (a) { return a.fromEnv; });
+    $('#dns-env-hint').textContent = INFO.container || INFO.server
+      ? 'Für Container lässt sich ein Zugang auch ohne Oberfläche vorgeben: Umgebungsvariable ZA_CLOUDFLARE_TOKEN oder ZA_CLOUDFLARE_TOKEN_FILE (Docker-Secret).' + (hasEnv ? ' Der Zugang „Aus der Umgebung“ kommt daher.' : '')
+      : '';
+  }
+  async function loadDNS() {
+    try {
+      var r = await api('GET', '/api/dns/accounts');
+      dnsAccounts = r.accounts || [];
+      renderDNS(); fillDnsSelect();
+    } catch (e) { if (!ended && e.status !== 401) $('#dns-msg').innerHTML = '<div class="notice err">' + esc(e.message) + '</div>'; }
+  }
+  $('#form-dns').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var err = $('#dns-err'), ok = $('#dns-ok'), btn = $('#dns-save');
+    hideEl(err); hideEl(ok);
+    var name = $('#dns-name').value.trim(), token = $('#dns-token').value.trim();
+    if (!name) { showErr(err, new Error('Bitte dem Zugang einen Namen geben, z. B. „Cloudflare Firma“.')); return; }
+    if (!token) { showErr(err, new Error('Bitte den API-Token eintragen.')); return; }
+    btn.disabled = true; btn.textContent = 'Prüfe …';
+    try {
+      var r = await api('POST', '/api/dns/accounts', { name: name, token: token });
+      $('#dns-token').value = ''; $('#dns-name').value = '';
+      ok.hidden = false;
+      ok.innerHTML = '<div class="notice ok"><p><b>Der Token ist gültig und gespeichert.</b></p><p>' + zonesHTML(r.zones || [], r.total || 0) + '</p></div>';
+      await loadDNS();
+    } catch (x) { if (!ended && x.status !== 401) showErr(err, x); }
+    btn.disabled = false; btn.textContent = 'Prüfen und speichern';
+  });
+  $('#dns-list').addEventListener('click', async function (e) {
+    var b = e.target.closest('button[data-dact]');
+    if (!b) return;
+    var card = b.closest('.card'), id = card.dataset.id, res = $('.dres', card), a = dnsAccounts.filter(function (x) { return x.id === id; })[0] || {};
+    if (b.dataset.dact === 'test') {
+      b.disabled = true; res.hidden = false; res.innerHTML = '<p class="hint">Prüfe …</p>';
+      try {
+        var r = await api('POST', '/api/dns/accounts/' + encodeURIComponent(id) + '/test', {});
+        res.innerHTML = r.ok ? '<div class="notice ok" style="margin:12px 0 0"><p><b>Verbindung in Ordnung.</b> ' + zonesHTML(r.zones || [], r.total || 0) + '</p></div>'
+          : '<div class="notice err" style="margin:12px 0 0"><p><b>' + esc(r.message || 'Fehlgeschlagen.') + '</b></p></div>';
+      } catch (x) { if (!ended && x.status !== 401) res.innerHTML = '<div class="notice err" style="margin:12px 0 0"><p><b>' + esc(x.message) + '</b></p></div>'; }
+      b.disabled = false;
+    } else if (b.dataset.dact === 'delete') {
+      var yes = await confirmBox('Zugang löschen?', '<p>Der gespeicherte Token von <b>' + esc(a.name || id) + '</b> wird entfernt. Der Token bei Cloudflare bleibt bestehen; wer ihn nicht mehr braucht, widerruft ihn dort.</p>', 'Löschen', true);
+      if (!yes) return;
+      try { await api('DELETE', '/api/dns/accounts/' + encodeURIComponent(id), {}); $('#dns-msg').innerHTML = ''; await loadDNS(); }
+      catch (x) { if (!ended && x.status !== 401) $('#dns-msg').innerHTML = '<div class="notice err"><p><b>' + esc(x.message) + '</b></p></div>'; }
+    }
+  });
+  $('#dns-goto').addEventListener('click', function () { selectTab('dns'); $('#tab-dns').focus(); });
+  $('#dns-check').addEventListener('click', async function () {
+    var box = $('#dns-check-result'), b = this, domains = $('#domains').value.trim();
+    box.hidden = false;
+    if (!domains) { box.innerHTML = '<p class="test-result no">Bitte oben zuerst die Domains eintragen.</p>'; return; }
+    b.disabled = true; box.innerHTML = '<p class="hint">Suche die Zonen …</p>';
+    try {
+      var r = await api('POST', '/api/dns/check', { domains: domains, account: $('#dnsaccount').value });
+      box.innerHTML = '<ul class="zonelist">' + (r.rows || []).map(function (x) {
+        return x.ok ? '<li><span class="y">✓</span> ' + esc(x.domain) + ' → Zone ' + esc(x.zone) + ' (Zugang „' + esc(x.account) + '“)</li>'
+          : '<li><span class="n">✗</span> ' + esc(x.domain) + ': ' + esc(x.message) + '</li>';
+      }).join('') + '</ul>';
+    } catch (x) { if (!ended && x.status !== 401) box.innerHTML = '<p class="test-result no">' + esc(x.message) + '</p>'; }
+    b.disabled = false;
   });
 
   /* ---------- Wildcard / DNS (manuell) ---------- */

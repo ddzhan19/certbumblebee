@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -21,23 +22,47 @@ const contentSecurityPolicy = "default-src 'none'; script-src 'unsafe-inline'; s
 
 const idleLimit = 30 * time.Minute
 
-// server ist der kleine Webserver für die Oberfläche. Er hört nur auf 127.0.0.1 und verlangt eine Anmeldung
-// über einen Einmal-Link: Andere Benutzer auf demselben Rechner und Webseiten im Browser kommen nicht heran.
+// server ist der Webserver für die Oberfläche. Er arbeitet in zwei Betriebsarten:
+//
+//   - lokal („ui“): hört nur auf 127.0.0.1 und verlangt eine Anmeldung über einen Einmal-Link. Andere Benutzer auf
+//     demselben Rechner und Webseiten im Browser kommen nicht heran. Nach 30 Minuten ohne Nutzung beendet er sich.
+//   - Dauerbetrieb („serve“): hört auf einer wählbaren Adresse, Anmeldung mit Passwort, Sitzungen mit Ablauf, Sperre
+//     gegen Raten, Zeitplan für die Erneuerung im selben Prozess.
 type server struct {
-	port      string
-	mu        sync.Mutex
+	port string
+	mu   sync.Mutex
+
+	// lokal
 	startKeys map[string]time.Time
 	sessions  map[string]bool
 	last      time.Time
-	httpSrv   *http.Server
-	done      chan struct{}
-	doneOnce  sync.Once
 	denied    int // Anzahl abgelehnter Anfragen ohne Anmeldung (nur für das Protokoll)
+
+	// Dauerbetrieb
+	pw       *passwordAuth
+	sched    *scheduler
+	tlsCert  string
+	tlsKey   string
+	forceSec bool // Cookie immer mit „Secure“ (Proxy mit https davor)
+
+	httpSrv  *http.Server
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func newServer(port string) *server {
 	return &server{port: port, startKeys: map[string]time.Time{}, sessions: map[string]bool{}, last: time.Now(), done: make(chan struct{})}
 }
+
+// newServerMode baut den Server für den Dauerbetrieb.
+func newServerMode(port string, pw *passwordAuth, sched *scheduler) *server {
+	s := newServer(port)
+	s.pw = pw
+	s.sched = sched
+	return s
+}
+
+func (s *server) serverMode() bool { return s.pw != nil }
 
 // newStartLink erzeugt einen Link, der genau einmal gültig ist.
 func (s *server) newStartLink() string {
@@ -49,18 +74,56 @@ func (s *server) newStartLink() string {
 }
 
 func (s *server) hostOK(h string) bool {
+	if s.serverMode() {
+		return true // Das Passwort schützt; die Adresse bestimmt der Betreiber (Proxy, DNS-Name, IP)
+	}
 	return h == "127.0.0.1:"+s.port || h == "localhost:"+s.port || h == "[::1]:"+s.port
 }
 
-func (s *server) hasSession(r *http.Request) bool {
+func (s *server) sessionID(r *http.Request) string {
 	c, err := r.Cookie("za_sid")
-	if err != nil || len(c.Value) < 32 {
+	if err != nil {
+		return ""
+	}
+	return c.Value
+}
+
+func (s *server) hasSession(r *http.Request) bool {
+	sid := s.sessionID(r)
+	if len(sid) < 32 {
 		return false
+	}
+	if s.serverMode() {
+		return s.pw.valid(sid)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for sid := range s.sessions {
-		if subtle.ConstantTimeCompare([]byte(sid), []byte(c.Value)) == 1 {
+	for id := range s.sessions {
+		if subtle.ConstantTimeCompare([]byte(id), []byte(sid)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// originOK: Anfragen, die etwas ändern, müssen von der eigenen Seite kommen.
+func (s *server) originOK(r *http.Request) bool {
+	o := r.Header.Get("Origin")
+	if o == "" {
+		return true
+	}
+	if !s.serverMode() {
+		return o == "http://127.0.0.1:"+s.port || o == "http://localhost:"+s.port
+	}
+	u, err := url.Parse(o)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+	if s.pw.trustProxy {
+		if xh := r.Header.Get("X-Forwarded-Host"); xh != "" && strings.EqualFold(u.Host, strings.TrimSpace(strings.Split(xh, ",")[0])) {
 			return true
 		}
 	}
@@ -87,6 +150,10 @@ func (s *server) guard(auth bool, h http.HandlerFunc) http.HandlerFunc {
 		s.last = time.Now()
 		s.mu.Unlock()
 		if auth && !s.hasSession(r) {
+			if s.serverMode() {
+				respond(w, http.StatusUnauthorized, map[string]any{"error": "Bitte anmelden.", "login": true})
+				return
+			}
 			s.logDenied(r, "Schnittstelle")
 			respond(w, http.StatusUnauthorized, map[string]any{"error": "Nicht angemeldet. Bitte den Link verwenden, den Certbumblebee anzeigt."})
 			return
@@ -96,7 +163,7 @@ func (s *server) guard(auth bool, h http.HandlerFunc) http.HandlerFunc {
 				respond(w, http.StatusForbidden, map[string]any{"error": "Ungültige Anfrage."})
 				return
 			}
-			if o := r.Header.Get("Origin"); o != "" && o != "http://127.0.0.1:"+s.port && o != "http://localhost:"+s.port {
+			if !s.originOK(r) {
 				respond(w, http.StatusForbidden, map[string]any{"error": "Ungültige Herkunft."})
 				return
 			}
@@ -146,37 +213,58 @@ func (s *server) logDenied(r *http.Request, where string) {
 		r.Method, r.URL.Path, where, state, sessions, s.port, r.UserAgent()))
 }
 
+func (s *server) cookieSecure(r *http.Request) bool {
+	if s.forceSec || r.TLS != nil {
+		return true
+	}
+	return s.serverMode() && s.pw.trustProxy && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
+
 func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /start", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
-		k := r.URL.Query().Get("k")
-		s.mu.Lock()
-		exp, ok := s.startKeys[k]
-		if ok {
-			delete(s.startKeys, k)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		secureHeaders(w)
+		ok := s.sched == nil || s.sched.healthy()
+		code := 200
+		if !ok {
+			code = http.StatusServiceUnavailable
 		}
-		s.mu.Unlock()
-		if !ok || time.Now().After(exp) {
-			s.logDenied(r, "Startlink ungültig oder schon benutzt")
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte(s.notLoggedInPage()))
-			return
-		}
-		sid := randomHex(32)
-		s.mu.Lock()
-		s.sessions[sid] = true
-		n := len(s.sessions)
-		s.mu.Unlock()
-		appLogGlobal(fmt.Sprintf("Anmeldung: Sitzung angelegt (%d im Programm), Port %s, Browser=%q", n, s.port, r.UserAgent()))
-		http.SetCookie(w, &http.Cookie{Name: "za_sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	}))
+		respond(w, code, map[string]any{"ok": ok, "version": appVersion})
+	})
+
+	if s.serverMode() {
+		s.registerLogin(mux)
+	} else {
+		mux.HandleFunc("GET /start", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
+			k := r.URL.Query().Get("k")
+			s.mu.Lock()
+			exp, ok := s.startKeys[k]
+			if ok {
+				delete(s.startKeys, k)
+			}
+			s.mu.Unlock()
+			if !ok || time.Now().After(exp) {
+				s.logDenied(r, "Startlink ungültig oder schon benutzt")
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(s.notLoggedInPage()))
+				return
+			}
+			sid := randomHex(32)
+			s.mu.Lock()
+			s.sessions[sid] = true
+			n := len(s.sessions)
+			s.mu.Unlock()
+			appLogGlobal(fmt.Sprintf("Anmeldung: Sitzung angelegt (%d im Programm), Port %s, Browser=%q", n, s.port, r.UserAgent()))
+			http.SetCookie(w, &http.Cookie{Name: "za_sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}))
+	}
 
 	mux.HandleFunc("GET /{$}", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if !s.hasSession(r) {
+		if !s.serverMode() && !s.hasSession(r) {
 			s.logDenied(r, "Startseite")
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(s.notLoggedInPage()))
@@ -189,15 +277,69 @@ func (s *server) handler() http.Handler {
 	return mux
 }
 
+// registerLogin: Anmelden und Abmelden im Dauerbetrieb.
+func (s *server) registerLogin(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/login", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Password string `json:"password"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		ip := s.pw.clientIP(r)
+		sid, err := s.pw.login(ip, req.Password)
+		if err != nil {
+			var be *loginBlockedError
+			if asBlocked(err, &be) {
+				mins := int(be.retryAfter.Minutes()) + 1
+				w.Header().Set("Retry-After", fmt.Sprint(int(be.retryAfter.Seconds())+1))
+				appLogGlobal(fmt.Sprintf("Anmeldung gesperrt für %s (zu viele Fehlversuche)", ip))
+				respond(w, http.StatusTooManyRequests, map[string]any{"error": fmt.Sprintf("Zu viele falsche Eingaben. Bitte in etwa %d Minuten erneut versuchen.", mins)})
+				return
+			}
+			appLogGlobal(fmt.Sprintf("Anmeldung fehlgeschlagen von %s", ip))
+			respond(w, http.StatusUnauthorized, map[string]any{"error": err.Error(), "login": true})
+			return
+		}
+		appLogGlobal(fmt.Sprintf("Anmeldung: %s, Browser=%q", ip, r.UserAgent()))
+		http.SetCookie(w, &http.Cookie{Name: "za_sid", Value: sid, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode,
+			Secure: s.cookieSecure(r), MaxAge: int(sessionMax.Seconds())})
+		respond(w, 200, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("POST /api/logout", s.guard(false, func(w http.ResponseWriter, r *http.Request) {
+		if sid := s.sessionID(r); sid != "" {
+			s.pw.logout(sid)
+		}
+		http.SetCookie(w, &http.Cookie{Name: "za_sid", Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: s.cookieSecure(r), MaxAge: -1})
+		respond(w, 200, map[string]any{"ok": true})
+	}))
+}
+
+func asBlocked(err error, target **loginBlockedError) bool {
+	be, ok := err.(*loginBlockedError)
+	if ok {
+		*target = be
+	}
+	return ok
+}
+
 func (s *server) shutdown() {
 	s.doneOnce.Do(func() { close(s.done) })
 }
 
-// serve läuft, bis „shutdown“ aufgerufen wird oder die Sitzung zu lange ungenutzt bleibt.
+// serve läuft, bis „shutdown“ aufgerufen wird. Lokal beendet sich der Server außerdem nach 30 Minuten ohne Nutzung.
 func (s *server) serve(ln net.Listener) error {
-	s.httpSrv = &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second}
+	s.httpSrv = &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 2 * time.Minute, IdleTimeout: 2 * time.Minute}
 	errc := make(chan error, 1)
-	go func() { errc <- s.httpSrv.Serve(ln) }()
+	go func() {
+		if s.tlsCert != "" {
+			errc <- s.httpSrv.ServeTLS(ln, s.tlsCert, s.tlsKey)
+		} else {
+			errc <- s.httpSrv.Serve(ln)
+		}
+	}()
 	tick := time.NewTicker(time.Minute)
 	defer tick.Stop()
 	for {
@@ -209,6 +351,9 @@ func (s *server) serve(ln net.Listener) error {
 			defer cancel()
 			return s.httpSrv.Shutdown(ctx)
 		case <-tick.C:
+			if s.serverMode() {
+				continue
+			}
 			s.mu.Lock()
 			idle := time.Since(s.last)
 			s.mu.Unlock()

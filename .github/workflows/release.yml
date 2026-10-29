@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 env:
   TAG: ${{ inputs.tag || github.ref_name }}
@@ -39,18 +40,63 @@ jobs:
         run: python3 tools/mkresource.py
       - name: Tests
         run: go test -count=1 .
-      - name: Windows-EXE bauen
+      - name: Windows-EXE und Linux-Programme bauen
         run: |
           mkdir dist
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o dist/certbumblebee.exe .
-          cd dist && sha256sum certbumblebee.exe > certbumblebee.exe.sha256
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee.exe .
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-amd64 .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-arm64 .
+          cd dist
+          sha256sum certbumblebee.exe > certbumblebee.exe.sha256
+          sha256sum certbumblebee-linux-amd64 certbumblebee-linux-arm64 > certbumblebee-linux.sha256
       - name: Release anlegen oder ergänzen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/certbumblebee.exe dist/certbumblebee.exe.sha256 --clobber
+            gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/certbumblebee.exe dist/certbumblebee.exe.sha256 \
+            gh release create "$TAG" dist/* \
               --title "Certbumblebee $TAG" --generate-notes
           fi
+
+  # Container-Image für amd64 und arm64 nach ghcr.io (ghcr.io/<Besitzer>/certbumblebee). Das Image enthält nur das
+  # statische Programm; kompiliert wird auf dem Runner für beide Architekturen, deshalb braucht es kein QEMU.
+  docker:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Namen und Versionen bestimmen
+        id: v
+        run: |
+          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          v="${TAG#v}"
+          {
+            echo "image=ghcr.io/$repo"
+            echo "full=$v"
+            echo "minor=${v%.*}"
+            echo "major=${v%%.*}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Image bauen und hochladen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          labels: |
+            org.opencontainers.image.version=${{ steps.v.outputs.full }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: |
+            ${{ steps.v.outputs.image }}:${{ steps.v.outputs.full }}
+            ${{ steps.v.outputs.image }}:${{ steps.v.outputs.minor }}
+            ${{ steps.v.outputs.image }}:${{ steps.v.outputs.major }}
+            ${{ steps.v.outputs.image }}:latest

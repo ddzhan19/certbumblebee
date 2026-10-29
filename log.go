@@ -7,10 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var logMu sync.Mutex
+
+// logStdout: Im Dauerbetrieb („serve“) geht jede Protokollzeile zusätzlich auf die Standardausgabe (docker logs).
+var logStdout atomic.Bool
 
 func logPath() string { return filepath.Join(dataDir(), "log", "za.log") }
 
@@ -26,16 +30,20 @@ func appLog(id, level, msg string) {
 		_ = os.Remove(p + ".alt")
 		_ = os.Rename(p, p+".alt")
 	}
+	msg = strings.NewReplacer("\r\n", " | ", "\n", " | ", "\r", " ").Replace(msg)
+	if id == "" {
+		id = "-"
+	}
+	line := fmt.Sprintf("%s [%s] [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), level, id, msg)
+	if logStdout.Load() {
+		fmt.Fprint(os.Stdout, line)
+	}
 	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	msg = strings.NewReplacer("\r\n", " | ", "\n", " | ", "\r", " ").Replace(msg)
-	if id == "" {
-		id = "-"
-	}
-	fmt.Fprintf(f, "%s [%s] [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), level, id, msg)
+	fmt.Fprint(f, line)
 }
 
 // appLogGlobal schreibt eine Zeile ohne Zuordnung zu einer Einrichtung.

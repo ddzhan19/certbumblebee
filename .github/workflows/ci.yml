@@ -31,4 +31,32 @@ jobs:
       - name: Tests
         run: go test -count=1 .
       - name: Windows-EXE bauen
-        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o /tmp/certbumblebee.exe .
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee.exe .
+      - name: Linux-Programm bauen
+        run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee-linux-arm64 .
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image für amd64 und arm64 bauen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+      - name: Image bauen, starten und Zustand prüfen
+        run: |
+          docker build -t certbumblebee:ci .
+          docker run -d --name cb -e ZA_PASSWORD=ci-test-passwort-123 -p 8080:8080 certbumblebee:ci
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then ok=1; break; fi
+            sleep 1
+          done
+          docker logs cb
+          test "$ok" = 1
+          docker exec cb /certbumblebee healthcheck
+          test "$(docker inspect -f '{{.Config.User}}' certbumblebee:ci)" = "10001:10001"
+          docker stop cb

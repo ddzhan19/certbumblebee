@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,8 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 			"name": appName, "author": appAuthor, "version": appVersion,
 			"windows": plat.IsWindows(), "elevated": plat.IsElevated(), "dataDir": dataDir(), "exe": exe,
 			"httpPort": httpPort(), "computerAccount": plat.ComputerAccount(), "hostname": host,
+			"server": s.serverMode(), "container": os.Getenv("ZA_CONTAINER") != "", "timezone": time.Local.String(),
+			"scheduler": schedulerKind(s),
 		})
 	}))
 
@@ -176,9 +179,143 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 		respond(w, 200, j.view())
 	}))
 
-	mux.HandleFunc("POST /api/quit", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+	if !s.serverMode() {
+		mux.HandleFunc("POST /api/quit", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+			respond(w, 200, map[string]any{"ok": true})
+			go func() { time.Sleep(200 * time.Millisecond); s.shutdown() }()
+		}))
+	}
+	s.registerDNSAPI(mux)
+}
+
+// schedulerKind sagt der Oberfläche, wer die Erneuerung auslöst.
+func schedulerKind(s *server) string {
+	switch {
+	case s.sched != nil:
+		return "builtin" // Zeitplan im Programm (Dauerbetrieb)
+	case plat.IsWindows():
+		return "task" // Windows-Aufgabenplanung
+	}
+	return "none" // Oberfläche allein: Erneuerung per „renew“ (cron/systemd)
+}
+
+type dnsAccountView struct {
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Provider string    `json:"provider"`
+	Created  time.Time `json:"created"`
+	FromEnv  bool      `json:"fromEnv"`
+	UsedBy   []string  `json:"usedBy"`
+}
+
+func zoneNames(zs []DNSZone) []string {
+	out := make([]string, len(zs))
+	for i, z := range zs {
+		out[i] = z.Name
+	}
+	return out
+}
+
+func (s *server) registerDNSAPI(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/dns/accounts", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+		out := []dnsAccountView{}
+		auto := profilesOnAutoDNS()
+		for _, a := range listDNSAccounts() {
+			used := append(append([]string{}, profilesUsingAccount(a.ID)...), auto...)
+			out = append(out, dnsAccountView{ID: a.ID, Name: a.Name, Provider: a.Provider, Created: a.Created, FromEnv: a.FromEnv, UsedBy: used})
+		}
+		respond(w, 200, map[string]any{"accounts": out})
+	}))
+
+	mux.HandleFunc("POST /api/dns/accounts", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Name  string `json:"name"`
+			Token string `json:"token"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		acc, zones, total, err := addDNSAccount(ctx, req.Name, req.Token)
+		if err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		appLogGlobal(fmt.Sprintf("DNS-Zugang „%s“ hinterlegt (%d Zone(n) sichtbar)", acc.Name, total))
+		respond(w, 200, map[string]any{"account": dnsAccountView{ID: acc.ID, Name: acc.Name, Provider: acc.Provider, Created: acc.Created, UsedBy: []string{}}, "zones": zoneNames(zones), "total": total})
+	}))
+
+	mux.HandleFunc("POST /api/dns/accounts/{id}/test", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+		acc, ok := getDNSAccount(r.PathValue("id"))
+		if !ok {
+			respond(w, 404, map[string]any{"error": "Diesen Zugang gibt es nicht."})
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		prov, err := providerFor(acc)
+		if err == nil {
+			var zones []DNSZone
+			var total int
+			if zones, total, err = prov.Zones(ctx); err == nil {
+				respond(w, 200, map[string]any{"ok": true, "zones": zoneNames(zones), "total": total})
+				return
+			}
+		}
+		respond(w, 200, map[string]any{"ok": false, "message": err.Error()})
+	}))
+
+	mux.HandleFunc("DELETE /api/dns/accounts/{id}", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if err := removeDNSAccount(id); err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		appLogGlobal("DNS-Zugang " + id + " gelöscht")
 		respond(w, 200, map[string]any{"ok": true})
-		go func() { time.Sleep(200 * time.Millisecond); s.shutdown() }()
+	}))
+
+	// Vorab prüfen, ob für jede Domain eine Zone gefunden wird.
+	mux.HandleFunc("POST /api/dns/check", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Domains string `json:"domains"`
+			Account string `json:"account"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		domains, err := normalizeWildDomains(req.Domains)
+		if err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		router, err := newDNSRouter(strings.TrimSpace(req.Account))
+		if err != nil {
+			respond(w, 400, errBody(err))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+		defer cancel()
+		type row struct {
+			Domain  string `json:"domain"`
+			OK      bool   `json:"ok"`
+			Zone    string `json:"zone,omitempty"`
+			Account string `json:"account,omitempty"`
+			Message string `json:"message,omitempty"`
+		}
+		rows := []row{}
+		for _, d := range domains {
+			loc, err := router.locate(ctx, "_acme-challenge."+strings.TrimPrefix(d, "*."))
+			if err != nil {
+				rows = append(rows, row{Domain: d, Message: err.Error()})
+				continue
+			}
+			rows = append(rows, row{Domain: d, OK: true, Zone: loc.zone.Name, Account: loc.acct.acc.Name})
+		}
+		respond(w, 200, map[string]any{"rows": rows})
 	}))
 }
 

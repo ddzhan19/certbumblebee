@@ -3,61 +3,150 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"golang.org/x/crypto/hkdf"
 )
 
-// fakePlatform ersetzt unter Linux/macOS die Windows-Funktionen. Aufgaben und Firewall-Regeln werden nur in
-// Dateien im Arbeitsordner vermerkt. „TaskRun“ startet die installierte Programmkopie wirklich.
-type fakePlatform struct{}
+// unixPlatform ist die Plattform für Linux und macOS (auch im Container). Es gibt keine Aufgabenplanung und keine
+// Windows-Firewall: Die automatische Erneuerung übernimmt der Dauerbetrieb („serve“) oder ein Aufruf von „renew“
+// durch cron/systemd. Aufgaben werden nur im Arbeitsordner vermerkt, damit die Übersicht sie anzeigen kann.
+type unixPlatform struct{}
 
 var fakeMu sync.Mutex
 
-func newPlatform() Platform { return fakePlatform{} }
+func newPlatform() Platform { return unixPlatform{} }
 
-func (fakePlatform) IsWindows() bool  { return false }
-func (fakePlatform) IsElevated() bool { return true }
+func (unixPlatform) IsWindows() bool  { return false }
+func (unixPlatform) IsElevated() bool { return true }
 
-func (fakePlatform) SecureDir(dir, extra string) error { return os.Chmod(dir, 0o700) }
-
-func (fakePlatform) Protect(data []byte) ([]byte, error) {
-	return append([]byte("FAKE1:"), data...), nil
+// SecureDir beschränkt den Arbeitsordner auf den Besitzer. Gehört er jemand anderem (gemountetes Volume), bleibt es dabei.
+func (unixPlatform) SecureDir(dir, extra string) error {
+	if err := os.Chmod(dir, 0o700); err != nil && !errors.Is(err, os.ErrPermission) {
+		return err
+	}
+	return nil
 }
 
-func (fakePlatform) Unprotect(data []byte) ([]byte, error) {
-	if !strings.HasPrefix(string(data), "FAKE1:") {
+// ---- Geheimnisse (Tokens, PFX-Passwörter) ----
+// AES-256-GCM. Der Schlüssel kommt aus ZA_SECRET_KEY oder ZA_SECRET_KEY_FILE; sonst wird im Arbeitsordner eine
+// Schlüsseldatei angelegt. Liegt der Schlüssel im selben Ordner wie die Daten, schützt das nur vor zufälligem Mitlesen:
+// Für echten Schutz ZA_SECRET_KEY getrennt von den Daten übergeben (z. B. als Docker-Secret).
+
+func deriveSecretKey(s string) ([]byte, error) {
+	k := make([]byte, 32)
+	r := hkdf.New(sha256.New, []byte(s), []byte("certbumblebee/v1"), []byte("secret-protection"))
+	if _, err := io.ReadFull(r, k); err != nil {
+		return nil, err
+	}
+	return k, nil
+}
+
+var keyFileMu sync.Mutex
+
+func secretKey() ([]byte, error) {
+	if v := os.Getenv("ZA_SECRET_KEY"); v != "" {
+		return deriveSecretKey(v)
+	}
+	if f := strings.TrimSpace(os.Getenv("ZA_SECRET_KEY_FILE")); f != "" {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return nil, fmt.Errorf("Die Schlüsseldatei ZA_SECRET_KEY_FILE ist nicht lesbar: %v", err)
+		}
+		v := strings.TrimSpace(string(b))
+		if v == "" {
+			return nil, fmt.Errorf("Die Schlüsseldatei ZA_SECRET_KEY_FILE ist leer.")
+		}
+		return deriveSecretKey(v)
+	}
+	keyFileMu.Lock()
+	defer keyFileMu.Unlock()
+	path := filepath.Join(dataDir(), "secret.key")
+	if b, err := os.ReadFile(path); err == nil {
+		if k, err := hex.DecodeString(strings.TrimSpace(string(b))); err == nil && len(k) == 32 {
+			return k, nil
+		}
+		return nil, fmt.Errorf("Die Schlüsseldatei %s ist beschädigt.", path)
+	}
+	k := make([]byte, 32)
+	if _, err := rand.Read(k); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, err
+	}
+	if err := writeFileAtomic(path, []byte(hex.EncodeToString(k)+"\n"), 0o600); err != nil {
+		return nil, err
+	}
+	return k, nil
+}
+
+const protectMagic = "UXG1"
+
+func (unixPlatform) Protect(data []byte) ([]byte, error) {
+	k, err := secretKey()
+	if err != nil {
+		return nil, err
+	}
+	blk, err := aes.NewCipher(k)
+	if err != nil {
+		return nil, err
+	}
+	g, err := cipher.NewGCM(blk)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, g.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	out := append([]byte(protectMagic), nonce...)
+	return g.Seal(out, nonce, data, []byte(protectMagic)), nil
+}
+
+func (unixPlatform) Unprotect(data []byte) ([]byte, error) {
+	if len(data) < len(protectMagic) || string(data[:len(protectMagic)]) != protectMagic {
 		return nil, fmt.Errorf("unbekanntes Format")
 	}
-	return data[6:], nil
+	k, err := secretKey()
+	if err != nil {
+		return nil, err
+	}
+	blk, err := aes.NewCipher(k)
+	if err != nil {
+		return nil, err
+	}
+	g, err := cipher.NewGCM(blk)
+	if err != nil {
+		return nil, err
+	}
+	rest := data[len(protectMagic):]
+	if len(rest) < g.NonceSize() {
+		return nil, fmt.Errorf("Daten zu kurz")
+	}
+	pt, err := g.Open(nil, rest[:g.NonceSize()], rest[g.NonceSize():], []byte(protectMagic))
+	if err != nil {
+		return nil, fmt.Errorf("falscher Schlüssel oder beschädigte Daten")
+	}
+	return pt, nil
 }
 
-func (fakePlatform) InstallSelf(dir string) (string, error) {
-	self, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	dest := filepath.Join(dir, strings.TrimSuffix(appExeName, ".exe"))
-	if self == dest {
-		return dest, nil
-	}
-	sh, _ := fileSHA256(self)
-	if dh, _ := fileSHA256(dest); dh != "" && dh == sh {
-		return dest, nil
-	}
-	b, err := os.ReadFile(self)
-	if err != nil {
-		return "", err
-	}
-	if err := writeFileAtomic(dest+".new", b, 0o755); err != nil {
-		return "", err
-	}
-	return dest, os.Rename(dest+".new", dest)
-}
+// InstallSelf: Unter Linux/macOS läuft die Erneuerung im Dauerbetrieb oder über „renew“ aus dem installierten
+// Programm. Eine Kopie im Arbeitsordner ist nicht nötig.
+func (unixPlatform) InstallSelf(dir string) (string, error) { return os.Executable() }
 
 func fakeFile(name string) string { return filepath.Join(dataDir(), name) }
 
@@ -71,33 +160,33 @@ func fakeLoad(name string) map[string]TaskSpec {
 
 func fakeSave(name string, m map[string]TaskSpec) error { return writeJSON(fakeFile(name), m) }
 
-func (fakePlatform) TaskRegister(spec TaskSpec) error {
+func (unixPlatform) TaskRegister(spec TaskSpec) error {
 	fakeMu.Lock()
 	defer fakeMu.Unlock()
 	spec.Password = ""
-	m := fakeLoad("fake-tasks.json")
+	m := fakeLoad("tasks.json")
 	m[spec.Name] = spec
-	return fakeSave("fake-tasks.json", m)
+	return fakeSave("tasks.json", m)
 }
 
-func (fakePlatform) TaskExists(name string) (bool, error) {
+func (unixPlatform) TaskExists(name string) (bool, error) {
 	fakeMu.Lock()
 	defer fakeMu.Unlock()
-	_, ok := fakeLoad("fake-tasks.json")[name]
+	_, ok := fakeLoad("tasks.json")[name]
 	return ok, nil
 }
 
-func (fakePlatform) TaskDelete(name string) error {
+func (unixPlatform) TaskDelete(name string) error {
 	fakeMu.Lock()
 	defer fakeMu.Unlock()
-	m := fakeLoad("fake-tasks.json")
+	m := fakeLoad("tasks.json")
 	delete(m, name)
-	return fakeSave("fake-tasks.json", m)
+	return fakeSave("tasks.json", m)
 }
 
-func (fakePlatform) TaskRun(name string) error {
+func (unixPlatform) TaskRun(name string) error {
 	fakeMu.Lock()
-	spec, ok := fakeLoad("fake-tasks.json")[name]
+	spec, ok := fakeLoad("tasks.json")[name]
 	fakeMu.Unlock()
 	if !ok {
 		return fmt.Errorf("Die Aufgabe „%s“ existiert nicht.", name)
@@ -110,26 +199,26 @@ func (fakePlatform) TaskRun(name string) error {
 	return nil
 }
 
-func (fakePlatform) FirewallAdd(rule, program string) error {
+func (unixPlatform) FirewallAdd(rule, program string) error {
 	fakeMu.Lock()
 	defer fakeMu.Unlock()
-	m := fakeLoad("fake-firewall.json")
+	m := fakeLoad("firewall.json")
 	m[rule] = TaskSpec{Name: rule, ExePath: program}
-	return fakeSave("fake-firewall.json", m)
+	return fakeSave("firewall.json", m)
 }
 
-func (fakePlatform) FirewallRemove(rule string) error {
+func (unixPlatform) FirewallRemove(rule string) error {
 	fakeMu.Lock()
 	defer fakeMu.Unlock()
-	m := fakeLoad("fake-firewall.json")
+	m := fakeLoad("firewall.json")
 	delete(m, rule)
-	return fakeSave("fake-firewall.json", m)
+	return fakeSave("firewall.json", m)
 }
 
-func (fakePlatform) OpenBrowser(url string) error { return nil }
-func (fakePlatform) Drives() []string             { return nil }
-func (fakePlatform) IsMappedDrive(string) bool    { return false }
-func (fakePlatform) ComputerAccount() string {
+func (unixPlatform) OpenBrowser(url string) error { return nil }
+func (unixPlatform) Drives() []string             { return nil }
+func (unixPlatform) IsMappedDrive(string) bool    { return false }
+func (unixPlatform) ComputerAccount() string {
 	h, _ := os.Hostname()
 	return strings.ToUpper(h) + "$"
 }

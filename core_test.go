@@ -198,7 +198,8 @@ func TestBuildProfileValidation(t *testing.T) {
 		"Webroot leer":       mod(func(r *CreateRequest) { r.Method = "webroot" }),
 		"Webroot ungültig":   mod(func(r *CreateRequest) { r.Method = "webroot"; r.Webroot = "relativ" }),
 		"Aufgabenname":       mod(func(r *CreateRequest) { r.TaskName = `a\b` }),
-		"Methode":            mod(func(r *CreateRequest) { r.Method = "dns" }),
+		"Methode":            mod(func(r *CreateRequest) { r.Method = "unbekannt" }),
+		"DNS ohne Zugang":    mod(func(r *CreateRequest) { r.Method = "dns" }),
 		"Passwort mit Umbr.": mod(func(r *CreateRequest) { r.Password = "a\nb" }),
 	}
 	for name, r := range bad {

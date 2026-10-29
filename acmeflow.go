@@ -183,14 +183,25 @@ func declareSteps(rep Reporter, p *Profile) {
 		declareSelfSignedSteps(rep, p)
 		return
 	}
-	if p.Method == "webroot" {
+	switch p.Method {
+	case "dns":
+		rep.Declare("konto", "Konto beim Zertifikatsanbieter")
+		rep.Declare("bestellung", "Zertifikat bestellen")
+		rep.Declare("dns", "DNS-Einträge bei Cloudflare anlegen")
+		rep.Declare("dnswarten", "Warten, bis die Einträge ausgeliefert werden")
+		rep.Declare("pruefung", "Domains bestätigen")
+		rep.Declare("aufraeumen", "DNS-Einträge wieder entfernen")
+	case "webroot":
 		rep.Declare("vorbereitung", "Webordner prüfen")
-	} else {
+		rep.Declare("konto", "Konto beim Zertifikatsanbieter")
+		rep.Declare("bestellung", "Zertifikat bestellen")
+		rep.Declare("pruefung", "Domains bestätigen")
+	default:
 		rep.Declare("vorbereitung", "Eingebauten Webserver starten (Port "+httpPort()+")")
+		rep.Declare("konto", "Konto beim Zertifikatsanbieter")
+		rep.Declare("bestellung", "Zertifikat bestellen")
+		rep.Declare("pruefung", "Domains bestätigen")
 	}
-	rep.Declare("konto", "Konto beim Zertifikatsanbieter")
-	rep.Declare("bestellung", "Zertifikat bestellen")
-	rep.Declare("pruefung", "Domains bestätigen")
 	rep.Declare("zertifikat", "Zertifikat abholen")
 	if p.hasOutput("pfx") {
 		rep.Declare("pfx", "PFX-Datei erzeugen")
@@ -199,8 +210,11 @@ func declareSteps(rep Reporter, p *Profile) {
 }
 
 func issueCertificate(ctx context.Context, p *Profile, rep Reporter) (chainPEM, keyPEM, csrPEM []byte, err error) {
-	if p.Method == "selfsigned" {
+	switch p.Method {
+	case "selfsigned":
 		return issueSelfSigned(ctx, p, rep)
+	case "dns":
+		return issueDNS(ctx, p, rep)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -227,23 +241,10 @@ func issueCertificate(ctx context.Context, p *Profile, rep Reporter) (chainPEM, 
 	}
 
 	// 2. Konto
-	rep.Step("konto", "Konto beim Zertifikatsanbieter")
-	accKey, err := loadOrCreateAccountKey(p.ID)
+	cl, err := acmeConnect(ctx, p, rep)
 	if err != nil {
-		rep.Fail("konto", err.Error())
 		return nil, nil, nil, err
 	}
-	cl := &acme.Client{Key: accKey, DirectoryURL: p.DirectoryURL, UserAgent: userAgent}
-	acct := &acme.Account{}
-	if p.Email != "" {
-		acct.Contact = []string{"mailto:" + p.Email}
-	}
-	if _, err := cl.Register(ctx, acct, acme.AcceptTOS); err != nil && !errors.Is(err, acme.ErrAccountAlreadyExists) {
-		e := explainACME(err, "", p)
-		rep.Fail("konto", e.Error())
-		return nil, nil, nil, e
-	}
-	rep.Ok("konto", "bereit")
 
 	// 3. Bestellung
 	rep.Step("bestellung", "Zertifikat bestellen")
@@ -317,6 +318,33 @@ func issueCertificate(ctx context.Context, p *Profile, rep Reporter) (chainPEM, 
 	rep.Ok("pruefung", "alle Domains bestätigt")
 
 	// 5. Schlüssel, Anforderung, Zertifikat
+	return acmeFinalize(ctx, cl, order, p, rep)
+}
+
+// acmeConnect meldet das Konto des Profils beim Zertifikatsanbieter an (Schritt „konto“).
+func acmeConnect(ctx context.Context, p *Profile, rep Reporter) (*acme.Client, error) {
+	rep.Step("konto", "Konto beim Zertifikatsanbieter")
+	accKey, err := loadOrCreateAccountKey(p.ID)
+	if err != nil {
+		rep.Fail("konto", err.Error())
+		return nil, err
+	}
+	cl := &acme.Client{Key: accKey, DirectoryURL: p.DirectoryURL, UserAgent: userAgent}
+	acct := &acme.Account{}
+	if p.Email != "" {
+		acct.Contact = []string{"mailto:" + p.Email}
+	}
+	if _, err := cl.Register(ctx, acct, acme.AcceptTOS); err != nil && !errors.Is(err, acme.ErrAccountAlreadyExists) {
+		e := explainACME(err, "", p)
+		rep.Fail("konto", e.Error())
+		return nil, e
+	}
+	rep.Ok("konto", "bereit")
+	return cl, nil
+}
+
+// acmeFinalize erzeugt Schlüssel und Anforderung und holt das Zertifikat (Schritt „zertifikat“).
+func acmeFinalize(ctx context.Context, cl *acme.Client, order *acme.Order, p *Profile, rep Reporter) (chainPEM, keyPEM, csrPEM []byte, err error) {
 	rep.Step("zertifikat", "Zertifikat abholen")
 	key, err := rsa.GenerateKey(rand.Reader, p.KeyBits)
 	if err != nil {
@@ -412,7 +440,7 @@ func explainACME(err error, domain string, p *Profile) error {
 }
 
 // dnsHint weist auf die Bestätigung per DNS-Eintrag hin. Sie braucht weder Port 80 noch einen A-Eintrag.
-const dnsHint = " Alternative: die Bestätigung per DNS-Eintrag. Sie braucht weder Port 80 noch einen öffentlichen A-Eintrag und funktioniert auch für normale Domains. Dafür den Tab „Wildcard / DNS (manuell)“ benutzen (ohne automatische Erneuerung)."
+const dnsHint = " Alternative: die Bestätigung per DNS-Eintrag. Sie braucht weder Port 80 noch einen öffentlichen A-Eintrag und funktioniert auch für normale Domains. Dafür die Methode „DNS (Cloudflare)“ wählen, wenn die Domain bei Cloudflare liegt, sonst den Tab „Wildcard / DNS (manuell)“ (ohne automatische Erneuerung)."
 
 func explainProblem(pe *acme.Error, dom string, p *Profile) error {
 	t := strings.ToLower(pe.ProblemType)

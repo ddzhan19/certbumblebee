@@ -1,0 +1,11 @@
+.git
+.github
+bin
+dist
+uitest
+pebble
+mock-acme
+icon
+*.exe
+*.md
+!README.md
