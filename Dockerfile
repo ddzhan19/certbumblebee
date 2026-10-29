@@ -4,12 +4,14 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS
 ARG TARGETARCH
+ARG TARGETVARIANT
 RUN apk add --no-cache ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+# GOARM gilt nur für 32-Bit-ARM (Raspberry Pi): TARGETVARIANT ist dort v7 oder v6, sonst leer.
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOARM=${TARGETVARIANT#v} \
     go build -trimpath -ldflags "-s -w" -o /out/certbumblebee . \
  && mkdir -p /out/data /out/certs
 

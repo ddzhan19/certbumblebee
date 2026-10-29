@@ -46,9 +46,12 @@ jobs:
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee.exe .
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-amd64 .
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-arm64 .
+          # 32-Bit-ARM für Raspberry Pi mit 32-Bit-System: armv7 (Pi 2, 3, 4) und armv6 (Pi 1, Zero)
+          GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-armv7 .
+          GOOS=linux GOARCH=arm GOARM=6 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-armv6 .
           cd dist
           sha256sum certbumblebee.exe > certbumblebee.exe.sha256
-          sha256sum certbumblebee-linux-amd64 certbumblebee-linux-arm64 > certbumblebee-linux.sha256
+          sha256sum certbumblebee-linux-amd64 certbumblebee-linux-arm64 certbumblebee-linux-armv7 certbumblebee-linux-armv6 > certbumblebee-linux.sha256
       - name: Release anlegen oder ergänzen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,8 +63,8 @@ jobs:
               --title "Certbumblebee $TAG" --generate-notes
           fi
 
-  # Container-Image für amd64 und arm64 nach ghcr.io (ghcr.io/<Besitzer>/certbumblebee). Das Image enthält nur das
-  # statische Programm; kompiliert wird auf dem Runner für beide Architekturen, deshalb braucht es kein QEMU.
+  # Container-Image für amd64, arm64, armv7 und armv6 nach ghcr.io (ghcr.io/<Besitzer>/certbumblebee). Das Image enthält
+  # nur das statische Programm; kompiliert wird auf dem Runner für alle Architekturen, deshalb braucht es kein QEMU.
   docker:
     needs: release
     runs-on: ubuntu-latest
@@ -90,7 +93,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
           push: true
           labels: |
             org.opencontainers.image.version=${{ steps.v.outputs.full }}

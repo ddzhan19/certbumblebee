@@ -24,7 +24,7 @@ Programmiert von Dzhan Chelebi.
 | Oberfläche | nur auf diesem Computer (127.0.0.1), einmaliger Startlink | im Netz erreichbar, **Passwort-Anmeldung** | `ui`: lokal; `serve`: im Netz mit Passwort |
 | Erneuerung | Windows-Aufgabenplanung | Zeitplan im Programm, läuft dauerhaft | `serve`: Zeitplan im Programm; sonst `renew --all` per cron/systemd |
 
-Fertige Dateien gibt es unter [Releases](../../releases): `certbumblebee.exe` (Windows, 64 Bit) sowie `certbumblebee-linux-amd64` und `certbumblebee-linux-arm64`, jeweils mit SHA-256-Prüfsumme. Das Container-Image liegt unter `ghcr.io/ddzhan19/certbumblebee` (amd64 und arm64).
+Fertige Dateien gibt es unter [Releases](../../releases): `certbumblebee.exe` (Windows, 64 Bit) sowie `certbumblebee-linux-amd64` und `certbumblebee-linux-arm64`, jeweils mit SHA-256-Prüfsumme. Für Raspberry Pis mit 32-Bit-System gibt es `certbumblebee-linux-armv7` (Pi 2, 3, 4) und `certbumblebee-linux-armv6` (Pi 1 und Zero). Das Container-Image liegt unter `ghcr.io/ddzhan19/certbumblebee` (amd64, arm64, armv7 und armv6).
 
 Die EXE ist nicht signiert. Windows SmartScreen zeigt deshalb beim ersten Start eine Warnung. Unter „Weitere Informationen“ lässt sie sich mit „Trotzdem ausführen“ starten, oder man entsperrt die Datei in den Dateieigenschaften.
 
@@ -62,6 +62,7 @@ Wichtig dabei:
 - **Volumes:** `/data` enthält Einrichtungen, Zugänge und Protokolle und muss erhalten bleiben. `/certs` ist der Ordner, in den die Zertifikatsdateien geschrieben werden (in der Oberfläche als Zielordner `/certs` angeben). Von dort aus lassen sie sich in andere Container einhängen, z. B. nginx mit `-v ./certs:/etc/nginx/certs:ro`.
 - **Benutzer:** Der Container läuft nicht als root, sondern als Benutzer `10001`. Gebundene Ordner (`./certs`) müssen ihm gehören oder für ihn beschreibbar sein: `chown 10001:10001 certs`.
 - **Zeitzone:** `TZ` bestimmt, wann der tägliche Lauf stattfindet (Standard UTC). Die Zeitzonen sind im Programm enthalten.
+- **Raspberry Pi:** Docker wählt das passende Image von selbst: bei einem 64-Bit-System (`uname -m` zeigt `aarch64`) arm64, bei einem 32-Bit-System (`armv7l` oder `armv6l`) das 32-Bit-Image. Auf dem Pi 1 und dem Zero ist die Schlüsselerzeugung deutlich langsamer, besonders bei 4096 Bit. 2048 Bit gehen dort schneller.
 - **Port 80:** Nur für die Methode „Dieses Programm beantwortet die Prüfung“ nötig (`-p 80:80`). Mit DNS bei Cloudflare braucht der Container keinen eingehenden Port außer 8080.
 - **HTTPS für die Oberfläche:** Die Oberfläche spricht von sich aus HTTP. Das Passwort sollte nicht unverschlüsselt durchs Netz gehen. Entweder einen Reverse-Proxy mit TLS davorsetzen (dann `ZA_TRUST_PROXY=1`, der Proxy muss `X-Forwarded-For`, `-Host` und `-Proto` setzen) oder dem Container ein eigenes Zertifikat geben (`ZA_TLS_CERT`, `ZA_TLS_KEY`). Die Oberfläche warnt, wenn sie über unverschlüsseltes HTTP aus dem Netz aufgerufen wird.
 - **Passwort:** Es kommt aus `ZA_PASSWORD_HASH` (bcrypt), `ZA_PASSWORD` oder `ZA_PASSWORD_FILE` (mindestens 10 Zeichen). Ist nichts gesetzt, erzeugt das Programm beim ersten Start eines und zeigt es einmal im Protokoll an. Ändern: `docker exec -it certbumblebee /certbumblebee passwd` (wirkt sofort, alle Sitzungen werden beendet; gilt nicht, wenn das Passwort über die Umgebung vorgegeben ist).
@@ -129,6 +130,9 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o c
 
 # Linux
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o certbumblebee .
+
+# Raspberry Pi mit 32-Bit-System (armv7; für Pi 1 und Zero GOARM=6)
+GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o certbumblebee-linux-armv7 .
 
 # Container
 docker build -t certbumblebee .

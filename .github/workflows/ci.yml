@@ -28,23 +28,29 @@ jobs:
         run: go vet .
       - name: go vet (Windows)
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet .
+      - name: go vet (Linux, 32-Bit-ARM)
+        run: GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go vet .
       - name: Tests
         run: go test -count=1 .
       - name: Windows-EXE bauen
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee.exe .
       - name: Linux-Programm bauen
         run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee-linux-arm64 .
+      - name: Linux-Programme für 32-Bit-ARM bauen (Raspberry Pi)
+        run: |
+          GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee-linux-armv7 .
+          GOOS=linux GOARCH=arm GOARM=6 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee-linux-armv6 .
 
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Image für amd64 und arm64 bauen
+      - name: Image für amd64, arm64, armv7 und armv6 bauen
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
           push: false
       - name: Image bauen, starten und Zustand prüfen
         run: |
@@ -60,3 +66,11 @@ jobs:
           docker exec cb /certbumblebee healthcheck
           test "$(docker inspect -f '{{.Config.User}}' certbumblebee:ci)" = "10001:10001"
           docker stop cb
+      # Die 32-Bit-ARM-Images laufen nur mit Emulation. Der Start von „version“ zeigt, dass das Programm dort wirklich läuft.
+      - uses: docker/setup-qemu-action@v3
+      - name: 32-Bit-ARM-Images starten (Emulation)
+        run: |
+          for v in v7 v6; do
+            docker buildx build --platform linux/arm/$v --load -t certbumblebee:arm$v .
+            docker run --rm --platform linux/arm/$v certbumblebee:arm$v version
+          done
