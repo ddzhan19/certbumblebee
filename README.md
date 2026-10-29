@@ -55,6 +55,12 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H wi
 go build -o bin/certbumblebee-linux .
 ```
 
+Das Programmsymbol (`icon/certbumblebee.ico`) und die Versionsangaben der EXE stehen in `resource_windows_amd64.syso`, die der Go-Linker beim Windows-Build automatisch aufnimmt. Nach einer Änderung an `version.go` oder am Symbol neu erzeugen (nur Python-Standardbibliothek):
+
+```
+python3 tools/mkresource.py
+```
+
 Die Oberfläche ist in die EXE eingebettet. Quelle ist `ui/src.html`; `ui/index.html` wird daraus erzeugt:
 
 ```

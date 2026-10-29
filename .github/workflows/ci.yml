@@ -13,6 +13,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Symbol und Versionsangaben aktuell?
+        run: |
+          python3 tools/mkresource.py
+          git diff --exit-code -- resource_windows_amd64.syso
       - name: gofmt
         run: test -z "$(gofmt -l *.go)"
       - name: go vet (Linux)

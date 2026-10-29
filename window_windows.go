@@ -78,7 +78,7 @@ func runWindow(link string, s *server) bool {
 	opts := webview2.WebViewOptions{
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title: appName, Width: uint(width), Height: uint(height), Center: true,
+			Title: appName, Width: uint(width), Height: uint(height), Center: true, IconId: appIconID,
 		},
 		CloseGuard: func() bool {
 			if anyJobRunning() {
@@ -110,6 +110,7 @@ func runWindow(link string, s *server) bool {
 		return false
 	}
 	w.SetSize(int(900*scale), int(640*scale), webview2.HintMin)
+	setWindowIcons(uintptr(w.Window()))
 	go func() { // „Programm beenden“ in der Oberfläche oder Abschalten von außen schließt das Fenster
 		<-s.done
 		w.Destroy()
@@ -117,6 +118,27 @@ func runWindow(link string, s *server) bool {
 	w.Navigate(link)
 	w.Run()
 	return true
+}
+
+// appIconID ist die Kennung der Symbolgruppe in resource_windows_amd64.syso (erzeugt von tools/mkresource.py).
+const appIconID = 1
+
+// setWindowIcons setzt kleines (Titelleiste) und großes Symbol (Taskleiste, Alt+Tab) in der passenden Größe.
+func setWindowIcons(hwnd uintptr) {
+	const (
+		smCxIcon, smCyIcon, smCxSmIcon, smCySmIcon = 11, 12, 49, 50
+		imageIcon, lrShared                        = 1, 0x8000
+		wmSetIcon, iconSmall, iconBig              = 0x0080, 0, 1
+	)
+	user32 := windows.NewLazySystemDLL("user32.dll")
+	hinst, _, _ := windows.NewLazySystemDLL("kernel32.dll").NewProc("GetModuleHandleW").Call(0)
+	for _, ic := range []struct{ which, cx, cy uintptr }{{iconSmall, smCxSmIcon, smCySmIcon}, {iconBig, smCxIcon, smCyIcon}} {
+		cx, _, _ := user32.NewProc("GetSystemMetrics").Call(ic.cx)
+		cy, _, _ := user32.NewProc("GetSystemMetrics").Call(ic.cy)
+		if h, _, _ := user32.NewProc("LoadImageW").Call(hinst, appIconID, imageIcon, cx, cy, lrShared); h != 0 {
+			user32.NewProc("SendMessageW").Call(hwnd, wmSetIcon, ic.which, h)
+		}
+	}
 }
 
 func webviewDataDirs() []string {
