@@ -62,7 +62,7 @@ func cmdUI(args []string) int {
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
 	port := fs.String("port", "", "Port der Oberfläche (Standard 8765)")
 	noBrowser := fs.Bool("no-browser", false, "Browser nicht automatisch öffnen")
-	inBrowser := fs.Bool("browser", false, "Oberfläche im Browser statt im Programmfenster anzeigen")
+	inBrowser := fs.Bool("browser", false, "Oberfläche im Browser statt als Windows-Programm anzeigen (Standard unter Windows: Programmfenster)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -79,6 +79,11 @@ func cmdUI(args []string) int {
 			return 1
 		}
 		return 0
+	}
+
+	// Unter Windows läuft die Oberfläche als normales Windows-Programm, ohne Webserver und Browser.
+	if plat.IsWindows() && !*inBrowser && os.Getenv("ZA_BROWSER") == "" {
+		return runNativeUI()
 	}
 
 	want := *port
@@ -102,25 +107,8 @@ func cmdUI(args []string) int {
 	s := newServer(p)
 	link := s.newStartLink()
 
-	windowed := plat.IsWindows() && !*inBrowser && os.Getenv("ZA_BROWSER") == ""
-	s.window.Store(windowed)
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- s.serve(ln) }()
-
-	if windowed {
-		fmt.Println("Die Oberfläche öffnet sich in einem Programmfenster.")
-		if runWindow(link, s) { // kehrt zurück, wenn das Fenster geschlossen wurde
-			s.shutdown()
-			select {
-			case <-serveErr:
-			case <-time.After(4 * time.Second):
-			}
-			return 0
-		}
-		// Kein Fenster möglich (z. B. fehlt WebView2): Die Oberfläche läuft stattdessen im Browser.
-		s.window.Store(false)
-		appLogGlobal("Programmfenster nicht möglich, Browser wird verwendet")
-	}
 
 	fmt.Println("Die Oberfläche läuft nur auf diesem Computer (127.0.0.1).")
 	fmt.Println("Link:", link)
@@ -128,7 +116,7 @@ func cmdUI(args []string) int {
 	if !*noBrowser && os.Getenv("ZA_NO_BROWSER") == "" {
 		if err := plat.OpenBrowser(link); err != nil {
 			fmt.Println("Der Browser konnte nicht geöffnet werden. Bitte den Link oben kopieren.")
-			showError(appName, "Das Programmfenster ließ sich nicht öffnen (Edge WebView2 fehlt?) und auch der Browser nicht.\n\nBitte diesen Link im Browser öffnen:\n"+link)
+			showError(appName, "Der Browser ließ sich nicht öffnen.\n\nBitte diesen Link im Browser öffnen:\n"+link)
 		}
 	}
 

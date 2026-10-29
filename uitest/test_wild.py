@@ -19,7 +19,7 @@ with sync_playwright() as pw:
     page.on('pageerror', lambda e: errors.append('pageerror: %s' % e))
     page.on('console', lambda m: errors.append('console: ' + m.text) if m.type == 'error' else None)
     page.goto(link)
-    expect(page.locator('#foot-version')).to_contain_text('1.2.1')
+    expect(page.locator('#foot-version')).to_contain_text(re.search(r'appVersion\s*=\s*"([^"]+)"', open(S + '/version.go', encoding='utf-8').read()).group(1))
     page.click('#tab-wild')
     page.click('#wgo1')
     expect(page.locator('#werr1')).to_contain_text('mindestens eine Domain')
@@ -112,15 +112,6 @@ with sync_playwright() as pw:
     r = ctx.request.get('http://127.0.0.1:8765/api/info', headers={'Host': 'evil.example'}); 
     print('  Host-Test Status:', r.status)
     H = {'Content-Type': 'application/json', 'X-ZA': '1'}
-    r = ctx.request.post('http://127.0.0.1:8765/api/open-link', data=json.dumps({'url': 'https://evil.example/'}), headers=H); assert r.status == 400, r.status
-    r = ctx.request.post('http://127.0.0.1:8765/api/open-link', data=json.dumps({'url': 'http://letsencrypt.org/'}), headers=H); assert r.status == 400, r.status
-    r = ctx.request.post('http://127.0.0.1:8765/api/open-link', data=json.dumps({'url': 'https://letsencrypt.org.evil.example/'}), headers=H); assert r.status == 400, r.status
-    r = ctx.request.post('http://127.0.0.1:8765/api/open-link', data=json.dumps({'url': 'https://letsencrypt.org/repository/'}), headers=H); assert r.status == 200, r.status
-    ok('Link öffnen: nur https://letsencrypt.org erlaubt')
-    r = ctx.request.post('http://127.0.0.1:8765/api/guard', data=json.dumps({'on': True}), headers=H); assert r.status == 200
-    r = ctx.request.post('http://127.0.0.1:8765/api/guard', data=json.dumps({'on': False}), headers=H); assert r.status == 200
-    assert ctx.request.get('http://127.0.0.1:8765/api/info').json()['window'] is False
-    ok('Schließ-Wächter-API und Info (Browser: window=false)')
     h = ctx.request.get('http://127.0.0.1:8765/api/info').headers
     assert 'default-src' in h.get('content-security-policy', '') and h.get('x-frame-options') == 'DENY'
     ok('Sicherheits-Header gesetzt')

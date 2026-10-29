@@ -54,6 +54,22 @@ var (
 
 func ruleName(id string) string { return "Certbumblebee Port 80 (" + id + ")" }
 
+// resolveServer wählt den Zertifikatsanbieter: prod, staging oder eine eigene ACME-Adresse.
+func resolveServer(kind, customURL string) (string, string, error) {
+	switch kind {
+	case "staging":
+		return "staging", dirStaging, nil
+	case "custom":
+		u, err := url.Parse(strings.TrimSpace(customURL))
+		loopback := err == nil && u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost")
+		if err != nil || u.Host == "" || (u.Scheme != "https" && !loopback) {
+			return "", "", fmt.Errorf("Eigener ACME-Server: Bitte die https-Adresse des Verzeichnisses angeben.")
+		}
+		return "custom", u.String(), nil
+	}
+	return "prod", dirProd, nil
+}
+
 // buildProfile prüft die Eingaben und baut daraus das Profil. Fehler sind für Menschen formuliert.
 func buildProfile(req CreateRequest) (*Profile, error) {
 	var domains []string
@@ -145,20 +161,10 @@ func buildProfile(req CreateRequest) (*Profile, error) {
 		return nil, fmt.Errorf("Das PFX-Passwort ist ungültig (höchstens 100 Zeichen, keine Zeilenumbrüche).")
 	}
 
-	switch {
-	case p.Method == "selfsigned":
+	if p.Method == "selfsigned" {
 		p.ServerKind = "selfsigned"
-	case req.Server == "staging":
-		p.ServerKind, p.DirectoryURL = "staging", dirStaging
-	case req.Server == "custom":
-		u, err := url.Parse(strings.TrimSpace(req.CustomURL))
-		loopback := err == nil && u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost")
-		if err != nil || u.Host == "" || (u.Scheme != "https" && !loopback) {
-			return nil, fmt.Errorf("Eigener ACME-Server: Bitte die https-Adresse des Verzeichnisses angeben.")
-		}
-		p.ServerKind, p.DirectoryURL = "custom", u.String()
-	default:
-		p.ServerKind, p.DirectoryURL = "prod", dirProd
+	} else if p.ServerKind, p.DirectoryURL, err = resolveServer(req.Server, req.CustomURL); err != nil {
+		return nil, err
 	}
 
 	if p.Method != "selfsigned" {

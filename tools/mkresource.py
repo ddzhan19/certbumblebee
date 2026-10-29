@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Erzeugt resource_windows_amd64.syso: Programmsymbol (icon/certbumblebee.ico) und Versionsangaben der EXE.
+"""Erzeugt resource_windows_amd64.syso: Programmsymbol (icon/certbumblebee.ico), Versionsangaben und Manifest der EXE.
 
 Der Go-Linker nimmt die Datei beim Bauen für Windows/amd64 automatisch auf. Name, Autor und Version
 kommen aus version.go, damit sie nicht auseinanderlaufen. Es wird nur die Standardbibliothek benutzt,
@@ -16,8 +16,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "resource_windows_amd64.syso")
 ICO = os.path.join(ROOT, "icon", "certbumblebee.ico")
 
-RT_ICON, RT_GROUP_ICON, RT_VERSION = 3, 14, 16
-ICON_GROUP_ID = 1      # window_windows.go lädt das Fenstersymbol unter dieser Kennung (appIconID)
+RT_ICON, RT_GROUP_ICON, RT_VERSION, RT_MANIFEST = 3, 14, 16, 24
+ICON_GROUP_ID = 1      # die Oberfläche lädt das Fenstersymbol unter dieser Kennung (appIconID)
 LANG = 0x0407          # Deutsch
 CODEPAGE = 0x04B0      # Unicode
 
@@ -101,6 +101,46 @@ def version_resource(name, author, version, exe):
     return block("VS_VERSION_INFO", 0, fixed, len(fixed), children=[block("StringFileInfo", 1, children=[table]), var])
 
 
+# ---------- Manifest ----------
+
+def manifest_xml(version, exe):
+    """Moderne Steuerelemente (Common Controls 6), scharfe Darstellung auf hochauflösenden Bildschirmen,
+    kein Administrator-Zwang beim Start (das Programm fragt bei Bedarf selbst)."""
+    nums = ([int(x) for x in version.split(".")] + [0, 0, 0, 0])[:4]
+    return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity type="win32" name="org.chelebi.%(name)s" version="%(ver)s" processorArchitecture="amd64"/>
+  <description>%(name)s</description>
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
+    </dependentAssembly>
+  </dependency>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+    </application>
+  </compatibility>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>
+""" % {"name": exe.rsplit(".", 1)[0], "ver": "%d.%d.%d.%d" % tuple(nums)}
+
+
 # ---------- Ressourcenbaum und COFF-Datei ----------
 
 def build_rsrc(res):
@@ -159,6 +199,7 @@ def main():
     name, author, version, exe = const("appName"), const("appAuthor"), const("appVersion"), const("appExeName")
     res = icon_resources(read_ico(ICO))
     res[RT_VERSION] = {1: {LANG: version_resource(name, author, version, exe)}}
+    res[RT_MANIFEST] = {1: {0x0409: manifest_xml(version, exe).encode("utf-8")}}
     section, relocs = build_rsrc(res)
     with open(OUT, "wb") as f:
         f.write(coff(section, relocs))

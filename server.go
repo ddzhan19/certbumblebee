@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -33,9 +32,7 @@ type server struct {
 	httpSrv   *http.Server
 	done      chan struct{}
 	doneOnce  sync.Once
-	wild      atomic.Bool // true: Ein Wildcard-Zertifikat im Browser ist noch nicht heruntergeladen
-	denied    int         // Anzahl abgelehnter Anfragen ohne Anmeldung (nur für das Protokoll)
-	window    atomic.Bool // true: Die Oberfläche läuft im Programmfenster (kein Browser, keine Abschaltung bei Leerlauf)
+	denied    int // Anzahl abgelehnter Anfragen ohne Anmeldung (nur für das Protokoll)
 }
 
 func newServer(port string) *server {
@@ -91,7 +88,7 @@ func (s *server) guard(auth bool, h http.HandlerFunc) http.HandlerFunc {
 		s.mu.Unlock()
 		if auth && !s.hasSession(r) {
 			s.logDenied(r, "Schnittstelle")
-			respond(w, http.StatusUnauthorized, map[string]any{"error": "Nicht angemeldet. Bitte den Link aus dem Programmfenster verwenden."})
+			respond(w, http.StatusUnauthorized, map[string]any{"error": "Nicht angemeldet. Bitte den Link verwenden, den Certbumblebee anzeigt."})
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -127,12 +124,7 @@ const notLoggedInHead = `<!doctype html><html lang="de"><meta charset="utf-8"><m
 <h1 style="font-size:1.25rem">Diese Seite ist nicht freigeschaltet</h1>
 `
 
-// notLoggedInPage: Im Programmfenster gibt es keine Eingabetaste und keinen Link zum Kopieren. Dort hilft nur ein Neustart.
 func (s *server) notLoggedInPage() string {
-	if s.window.Load() {
-		return notLoggedInHead + `<p>Dieses Fenster ist nicht mehr bei Certbumblebee angemeldet.</p>
-<p>Bitte das Programm schließen und neu starten. Wenn das öfter vorkommt, hilft die Datei „za.log“ im Ordner „log“ des Arbeitsordners bei der Suche nach der Ursache.</p>`
-	}
 	return notLoggedInHead + `<p>Bitte den Link verwenden, den Certbumblebee anzeigt. Er öffnet sich normalerweise von selbst und gilt nur einmal.</p>
 <p>Wurde der Link schon benutzt: in dem Fenster, in dem das Programm läuft, die Eingabetaste drücken, dann erscheint ein neuer.</p>`
 }
@@ -150,8 +142,8 @@ func (s *server) logDenied(r *http.Request, where string) {
 	if c, err := r.Cookie("za_sid"); err == nil {
 		state = fmt.Sprintf("Cookie mit %d Zeichen, unbekannte Sitzung", len(c.Value))
 	}
-	appLogGlobal(fmt.Sprintf("Anmeldung fehlt bei %s %s (%s): %s, %d Sitzung(en) im Programm, Port %s, Fenster=%v, Browser=%q",
-		r.Method, r.URL.Path, where, state, sessions, s.port, s.window.Load(), r.UserAgent()))
+	appLogGlobal(fmt.Sprintf("Anmeldung fehlt bei %s %s (%s): %s, %d Sitzung(en) im Programm, Port %s, Browser=%q",
+		r.Method, r.URL.Path, where, state, sessions, s.port, r.UserAgent()))
 }
 
 func (s *server) handler() http.Handler {
@@ -220,7 +212,7 @@ func (s *server) serve(ln net.Listener) error {
 			s.mu.Lock()
 			idle := time.Since(s.last)
 			s.mu.Unlock()
-			if !s.window.Load() && idle > idleLimit && !anyJobRunning() {
+			if idle > idleLimit && !anyJobRunning() {
 				fmt.Println("Keine Aktivität seit 30 Minuten, das Programm beendet sich.")
 				s.shutdown()
 			}

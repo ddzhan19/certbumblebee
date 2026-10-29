@@ -4,8 +4,8 @@ package main
 
 import "fmt"
 
-// Außerhalb von Windows gibt es kein Programmfenster, die Oberfläche läuft im Browser.
-func runWindow(link string, s *server) bool { return false }
+// Außerhalb von Windows gibt es keine Programmoberfläche, die Oberfläche läuft im Browser.
+func runNativeUI() int { return 1 }
 
 func showError(title, text string) { fmt.Println(title+":", text) }
 

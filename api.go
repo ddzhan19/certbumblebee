@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 )
@@ -41,7 +39,7 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 		respond(w, 200, map[string]any{
 			"name": appName, "author": appAuthor, "version": appVersion,
 			"windows": plat.IsWindows(), "elevated": plat.IsElevated(), "dataDir": dataDir(), "exe": exe,
-			"httpPort": httpPort(), "computerAccount": plat.ComputerAccount(), "hostname": host, "window": s.window.Load(),
+			"httpPort": httpPort(), "computerAccount": plat.ComputerAccount(), "hostname": host,
 		})
 	}))
 
@@ -71,13 +69,8 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 	}))
 
 	mux.HandleFunc("POST /api/port80", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
-		ln, err := net.Listen("tcp", ":"+httpPort())
-		if err != nil {
-			respond(w, 200, map[string]any{"ok": false, "message": fmt.Sprintf("Port %s ist belegt oder gesperrt (%v). Läuft hier schon ein Webserver, bitte „Vorhandener Webserver“ wählen.", httpPort(), simplifyOSError(err))})
-			return
-		}
-		_ = ln.Close()
-		respond(w, 200, map[string]any{"ok": true, "message": fmt.Sprintf("Port %s ist frei. Ob er auch aus dem Internet erreichbar ist, zeigt erst die Ausstellung (am besten zuerst mit „Let’s Encrypt Test“).", httpPort())})
+		ok, msg := checkPort80()
+		respond(w, 200, map[string]any{"ok": ok, "message": msg})
 	}))
 
 	mux.HandleFunc("GET /api/profiles", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
@@ -181,40 +174,6 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 			return
 		}
 		respond(w, 200, j.view())
-	}))
-
-	// Links in der Oberfläche (Nutzungsbedingungen) öffnen im Standardbrowser, nicht im Programmfenster.
-	// Erlaubt ist nur die Seite des Zertifikatsanbieters.
-	mux.HandleFunc("POST /api/open-link", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			URL string `json:"url"`
-		}
-		if err := readJSON(r, &req); err != nil {
-			respond(w, 400, errBody(err))
-			return
-		}
-		u, err := url.Parse(req.URL)
-		if err != nil || u.Scheme != "https" || u.Host != "letsencrypt.org" {
-			respond(w, 400, map[string]any{"error": "Dieser Link wird nicht geöffnet."})
-			return
-		}
-		if err := plat.OpenBrowser(u.String()); err != nil {
-			respond(w, 500, map[string]any{"error": "Der Browser konnte nicht geöffnet werden."})
-			return
-		}
-		respond(w, 200, map[string]any{"ok": true})
-	}))
-
-	mux.HandleFunc("POST /api/guard", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			On bool `json:"on"`
-		}
-		if err := readJSON(r, &req); err != nil {
-			respond(w, 400, errBody(err))
-			return
-		}
-		s.wild.Store(req.On)
-		respond(w, 200, map[string]any{"ok": true})
 	}))
 
 	mux.HandleFunc("POST /api/quit", s.guard(true, func(w http.ResponseWriter, r *http.Request) {

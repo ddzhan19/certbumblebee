@@ -1316,7 +1316,6 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     $('#foot-name').textContent = INFO.name || 'Certbumblebee';
     $('#foot-version').textContent = 'Version ' + (INFO.version || '');
     $('#foot-data').textContent = 'Daten: ' + (INFO.dataDir || '');
-    if (INFO.window) $('#quit').hidden = true; // im Programmfenster beendet das Schließen des Fensters das Programm
     if (INFO.windows && !INFO.elevated) {
       banner('warn', '<p><b>Das Programm läuft ohne Administratorrechte.</b></p><p>Automatische Erneuerung und Firewall-Regel brauchen sie. Bitte Certbumblebee beenden und neu starten; Windows fragt dann nach der Erlaubnis.</p>');
     }
@@ -1328,13 +1327,6 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     applyEnv(); syncMethod();
     loadOverview();
   }
-  // Im Programmfenster öffnen Links (Nutzungsbedingungen) im Standardbrowser statt in einem zweiten Fenster.
-  document.addEventListener('click', function (e) {
-    var a = e.target.closest ? e.target.closest('a[target="_blank"]') : null;
-    if (!a || !INFO.window) return;
-    e.preventDefault();
-    api('POST', '/api/open-link', { url: a.href }).catch(function () { /* ignorieren */ });
-  });
   $('#quit').addEventListener('click', async function () {
     var ok = await confirmBox('Certbumblebee beenden?', '<p>Die Oberfläche wird geschlossen. Eingerichtete Aufgaben laufen weiter, auch wenn dieses Programm nicht geöffnet ist.</p>', 'Beenden');
     if (!ok) return;
@@ -1350,13 +1342,6 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     function resetState() { S = { step: 1, client: null, order: null, infos: [], form: null, keyPromise: null, result: null, guard: false }; }
     resetState();
     window.addEventListener('beforeunload', function (e) { if (S.guard) { e.preventDefault(); e.returnValue = ''; } });
-    // Im Programmfenster fragt das Programm selbst nach, bevor es mit einem noch nicht gespeicherten Wildcard-Schlüssel schließt.
-    var guardSent = false;
-    setInterval(function () {
-      if (!INFO.window || ended) return;
-      var g = !!(S && S.guard);
-      if (g !== guardSent) { guardSent = g; api('POST', '/api/guard', { on: g }).catch(function () { guardSent = !g; }); }
-    }, 1000);
 
     function showStep(n) {
       S.step = n;

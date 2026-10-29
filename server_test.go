@@ -12,12 +12,8 @@ func TestNotLoggedInPageAndLog(t *testing.T) {
 	t.Setenv("ZA_DATA", t.TempDir())
 	s := newServer("8765")
 
-	if p := s.notLoggedInPage(); !strings.Contains(p, "Eingabetaste") || strings.Contains(p, "neu starten") {
-		t.Errorf("Browser-Text unerwartet: %s", p)
-	}
-	s.window.Store(true)
-	if p := s.notLoggedInPage(); strings.Contains(p, "Eingabetaste") || !strings.Contains(p, "neu starten") {
-		t.Errorf("Fenster-Text unerwartet: %s", p)
+	if p := s.notLoggedInPage(); !strings.Contains(p, "Eingabetaste") {
+		t.Errorf("Text unerwartet: %s", p)
 	}
 
 	h := s.handler()
