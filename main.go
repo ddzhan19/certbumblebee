@@ -142,9 +142,14 @@ func cmdUI(args []string) int {
 	}()
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
-	go func() { <-sig; s.shutdown() }()
+	go func() { <-sig; signal.Stop(sig); s.shutdown() }() // ein zweites Strg+C beendet sofort
 
-	if err := <-serveErr; err != nil && !strings.Contains(err.Error(), "closed") {
+	err = <-serveErr
+	// Laufende Vorgänge abbrechen und kurz abwarten, damit sie aufräumen können (z. B. DNS-Einträge löschen).
+	if !s.stopJobs(25 * time.Second) {
+		fmt.Println("Hinweis: Ein Vorgang war nach 25 Sekunden noch nicht beendet.")
+	}
+	if err != nil && !strings.Contains(err.Error(), "closed") {
 		fmt.Println("Fehler:", err)
 		return 1
 	}

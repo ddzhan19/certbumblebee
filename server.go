@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -48,10 +49,62 @@ type server struct {
 	httpSrv  *http.Server
 	done     chan struct{}
 	doneOnce sync.Once
+
+	// Vorgänge, die über die Oberfläche starten (Einrichten, Erneuern). Beim Beenden werden sie abgebrochen und
+	// abgewartet, damit sie noch aufräumen können (z. B. DNS-Einträge löschen).
+	jobCtx    context.Context
+	jobCancel context.CancelFunc
+	jobs      sync.WaitGroup
+	stopping  bool
 }
 
 func newServer(port string) *server {
-	return &server{port: port, startKeys: map[string]time.Time{}, sessions: map[string]bool{}, last: time.Now(), done: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &server{port: port, startKeys: map[string]time.Time{}, sessions: map[string]bool{}, last: time.Now(), done: make(chan struct{}),
+		jobCtx: ctx, jobCancel: cancel}
+}
+
+var errShuttingDown = errors.New("Das Programm wird gerade beendet. Bitte später erneut versuchen.")
+
+// goJob führt f im Hintergrund aus. Der Kontext wird beim Beenden abgebrochen (cancelJobs). Solange das Programm
+// beendet wird, nimmt der Server keine neuen Vorgänge mehr an (false).
+func (s *server) goJob(f func(ctx context.Context)) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopping {
+		return false
+	}
+	s.jobs.Add(1)
+	go func() {
+		defer s.jobs.Done()
+		f(s.jobCtx)
+	}()
+	return true
+}
+
+// cancelJobs bricht laufende Vorgänge ab und nimmt keine neuen mehr an.
+func (s *server) cancelJobs() {
+	s.mu.Lock()
+	s.stopping = true
+	s.mu.Unlock()
+	s.jobCancel()
+}
+
+// waitJobs wartet höchstens so lange, bis die abgebrochenen Vorgänge aufgeräumt haben. false: nicht rechtzeitig fertig.
+func (s *server) waitJobs(wait time.Duration) bool {
+	done := make(chan struct{})
+	go func() { s.jobs.Wait(); close(done) }()
+	select {
+	case <-done:
+		return true
+	case <-time.After(wait):
+		return false
+	}
+}
+
+func (s *server) stopJobs(wait time.Duration) bool {
+	s.cancelJobs()
+	return s.waitJobs(wait)
 }
 
 // newServerMode baut den Server für den Dauerbetrieb.

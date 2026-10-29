@@ -100,10 +100,13 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 			return
 		}
 		job := newJob(p.ID)
-		go func() {
-			res, err := createProfile(context.Background(), p, req, job)
+		if !s.goJob(func(ctx context.Context) {
+			res, err := createProfile(ctx, p, req, job)
 			job.finish(err, res)
-		}()
+		}) {
+			respond(w, 503, map[string]any{"error": errShuttingDown.Error()})
+			return
+		}
 		respond(w, 202, map[string]any{"jobId": job.ID, "id": p.ID})
 	}))
 
@@ -122,10 +125,13 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 			return
 		}
 		job := newJob(id)
-		go func() {
-			res, err := renewProfile(context.Background(), id, req.Force, job)
+		if !s.goJob(func(ctx context.Context) {
+			res, err := renewProfile(ctx, id, req.Force, job)
 			job.finish(err, res)
-		}()
+		}) {
+			respond(w, 503, map[string]any{"error": errShuttingDown.Error()})
+			return
+		}
 		respond(w, 202, map[string]any{"jobId": job.ID})
 	}))
 

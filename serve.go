@@ -128,9 +128,17 @@ func cmdServe(args []string) int {
 			code = 1
 		}
 	}
+	signal.Stop(sig) // ein zweites Signal beendet das Programm sofort
 	s.shutdown()
+	// Laufende Vorgänge (Zeitplan und Oberfläche) werden abgebrochen. Sie haben zusammen höchstens 25 Sekunden zum
+	// Aufräumen (DNS-Einträge löschen u. a.), das passt in die Wartezeit von „docker stop“ (stop_grace_period: 30s).
+	until := time.Now().Add(25 * time.Second)
+	s.cancelJobs()
 	if s.sched != nil {
 		s.sched.stop(25 * time.Second)
+	}
+	if !s.waitJobs(time.Until(until)) {
+		appLogGlobal("Hinweis: Ein Vorgang war nach 25 Sekunden noch nicht beendet. Übrig gebliebene DNS-Einträge bei Cloudflare räumt der nächste Lauf auf.")
 	}
 	select {
 	case <-serveErr:
