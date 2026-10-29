@@ -4,8 +4,8 @@
 #   mkdir -p secrets certs
 #   printf '%s' 'Ein-langes-Passwort-fuer-die-Oberflaeche' > secrets/za_password.txt
 #   openssl rand -base64 32 | tr -d '\n' > secrets/za_secret_key.txt
-#   chown -R 10001:10001 certs secrets   # der Container läuft als Benutzer 10001: er schreibt in „certs“
-#   chmod 400 secrets/*                  # und liest die Geheimnisse
+#   chmod 400 secrets/*                       # zuerst: nach dem chown gehören die Dateien dem Benutzer 10001
+#   sudo chown -R 10001:10001 certs secrets   # der Container läuft als Benutzer 10001: er schreibt in „certs“ und liest die Geheimnisse
 # Starten:  docker compose up -d
 # Oberfläche: http://localhost:8080  (nach außen nur über einen HTTPS-Proxy anbieten, siehe README)
 

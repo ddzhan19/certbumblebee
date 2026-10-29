@@ -97,14 +97,14 @@ func resolveAdminHash() (hash []byte, source, generated string, err error) {
 		}
 		return []byte(v), "ZA_PASSWORD_HASH", "", nil
 	}
-	pw := os.Getenv("ZA_PASSWORD")
+	pw, src := os.Getenv("ZA_PASSWORD"), "ZA_PASSWORD"
 	if pw == "" {
 		if f := strings.TrimSpace(os.Getenv("ZA_PASSWORD_FILE")); f != "" {
 			b, e := os.ReadFile(f)
 			if e != nil {
 				return nil, "", "", fmt.Errorf("ZA_PASSWORD_FILE ist nicht lesbar: %v", e)
 			}
-			pw = strings.TrimRight(string(b), "\r\n")
+			pw, src = strings.TrimRight(string(b), "\r\n"), "ZA_PASSWORD_FILE"
 		}
 	}
 	if pw != "" {
@@ -112,7 +112,7 @@ func resolveAdminHash() (hash []byte, source, generated string, err error) {
 			return nil, "", "", fmt.Errorf("Das Passwort aus ZA_PASSWORD/ZA_PASSWORD_FILE ist zu kurz (mindestens %d Zeichen).", minPasswordLen)
 		}
 		h, e := hashPassword(pw)
-		return h, "ZA_PASSWORD", "", e
+		return h, src, "", e
 	}
 	if b, e := os.ReadFile(adminPath()); e == nil {
 		var af adminFile

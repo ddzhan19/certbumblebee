@@ -325,7 +325,7 @@ func TestResolveAdminHash(t *testing.T) {
 	_ = os.WriteFile(f, []byte("aus-der-datei-passwort\n"), 0o600)
 	t.Setenv("ZA_PASSWORD_FILE", f)
 	h4, src4, _, err := resolveAdminHash()
-	if err != nil || src4 != "ZA_PASSWORD" {
+	if err != nil || src4 != "ZA_PASSWORD_FILE" {
 		t.Fatal(src4, err)
 	}
 	if _, err := newPasswordAuth(h4, false).login("1.1.1.1", "aus-der-datei-passwort"); err != nil {
