@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Certbumblebee</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M24 2 43 13v22L24 46 5 35V13z' fill='%231c1b19' stroke='%23f5b81c' stroke-width='2'/%3E%3Cellipse cx='15.5' cy='22' rx='8' ry='4.4' transform='rotate(-35 15.5 22)' fill='%23fff' opacity='.88'/%3E%3Cellipse cx='32.5' cy='22' rx='8' ry='4.4' transform='rotate(35 32.5 22)' fill='%23fff' opacity='.88'/%3E%3Cellipse cx='24' cy='28.5' rx='7.2' ry='10.5' fill='%23f5b81c'/%3E%3Ccircle cx='24' cy='15.5' r='4.2' fill='%23f5b81c'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #e9ebee;
+  --sheet: #ffffff;
+  --ink: #1c1b19;
+  --muted: #5b5a55;
+  --rule: #d8dade;
+  --field: #ffffff;
+  --field-border: #a9adb5;
+  --honey: #f5b81c;
+  --honey-hover: #ffc93f;
+  --honey-ink: #1c1b19;
+  --honey-soft: #fff4d2;
+  --link: #8a5a00;
+  --ok: #1b7448;
+  --ok-soft: #e1f3ea;
+  --warn: #7a5200;
+  --warn-soft: #fff1cc;
+  --bad: #b02a22;
+  --bad-soft: #fdeceb;
+  --info-soft: #eef1f6;
+  --head: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131312;
+    --sheet: #1e1e1c;
+    --ink: #eeece6;
+    --muted: #a9a79f;
+    --rule: #34342f;
+    --field: #161615;
+    --field-border: #55554e;
+    --honey-soft: #3a2f10;
+    --link: #f5b81c;
+    --ok: #62d09b;
+    --ok-soft: #173326;
+    --warn: #f1c261;
+    --warn-soft: #3a2d10;
+    --bad: #ff8d84;
+    --bad-soft: #3d1c1a;
+    --info-soft: #25272c;
+  }
+  .btn.primary { border-color: var(--honey); box-shadow: 0 2px 0 #8a6200; }
+  .btn.primary:active { box-shadow: 0 1px 0 #8a6200; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans); }
+a { color: var(--link); }
+.app { max-width: 1040px; margin: 0 auto; padding: 30px 20px 56px; }
+
+/* Kopf */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 28px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo { flex: none; width: 56px; height: 56px; }
+h1 { margin: 0; font: 700 1.9rem/1.1 var(--head); letter-spacing: -.01em; }
+.tag { margin: 2px 0 0; color: var(--muted); font-size: .9375rem; }
+.privacy { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: .875rem; color: var(--muted); max-width: 44ch; }
+.privacy svg { flex: none; width: 16px; height: 16px; margin-top: 3px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px 28px; margin: 24px 0 26px; border-bottom: 1px solid var(--rule); }
+.tab { margin: 0 0 -1px; padding: 10px 0; font: inherit; color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 650; border-bottom-color: var(--honey); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 5px var(--honey); border-radius: 4px; }
+
+.sheet { padding: 28px 32px 32px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; }
+.sheet h2 { margin: 0 0 6px; font: 650 1.375rem/1.3 var(--head); }
+.sheet h2:focus { outline: none; box-shadow: none; }
+.lead { margin: 0 0 24px; max-width: 64ch; color: var(--muted); }
+
+/* Formulare */
+.group { margin: 0 0 30px; padding: 0; border: 0; min-width: 0; }
+.group > legend { padding: 0; margin: 0 0 12px; font: 650 1.0625rem/1.3 var(--head); }
+.field { margin: 0 0 20px; border: 0; padding: 0; min-width: 0; }
+.field > legend, .lbl { display: block; padding: 0; margin: 0 0 6px; font-weight: 600; }
+.hint { margin: 6px 0 0; max-width: 66ch; font-size: .875rem; color: var(--muted); }
+input[type="text"], input[type="email"], input[type="password"], input[type="url"], input[type="time"], textarea, select {
+  width: 100%; padding: 10px 12px; font: inherit; color: var(--ink); background: var(--field);
+  border: 1px solid var(--field-border); border-radius: 6px;
+}
+input[type="time"] { width: auto; min-width: 9ch; }
+textarea { resize: vertical; line-height: 1.45; }
+.mono { font-family: var(--mono); font-size: .875rem; }
+.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.inline > input { flex: 1 1 220px; min-width: 0; }
+.choices { display: grid; gap: 10px; }
+.choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 8px; cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--ink); background: var(--honey-soft); }
+.choice input { margin: 4px 0 0; accent-color: var(--ink); }
+.choice b { display: block; font-weight: 600; }
+.choice span { display: block; font-size: .875rem; color: var(--muted); }
+.sub { margin: 12px 0 0 2px; padding-left: 16px; border-left: 3px solid var(--honey); }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 18px; max-width: 66ch; }
+.check input { margin: 5px 0 0; accent-color: var(--ink); flex: none; }
+.check small { display: block; color: var(--muted); font-size: .875rem; }
+.outs { margin: 0 0 22px; }
+.outs > legend { font-weight: 600; margin-bottom: 10px; }
+.outs .check { margin-bottom: 12px; }
+.outs .notice { margin: 0 0 14px; }
+ul.files { margin: 6px 0 0; padding: 0; list-style: none; }
+ul.files li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; padding: 4px 0; }
+ul.files code { font-family: var(--mono); font-size: .875rem; overflow-wrap: anywhere; }
+ul.files .kind { color: var(--muted); font-size: .875rem; }
+details.more { margin: 0 0 24px; border-top: 1px solid var(--rule); padding-top: 14px; }
+details.more summary { cursor: pointer; font-weight: 600; }
+details.more[open] summary { margin-bottom: 18px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.test-result { margin: 8px 0 0; font-size: .9375rem; }
+.test-result.ok { color: var(--ok); }
+.test-result.no { color: var(--bad); }
+
+/* Schaltflächen */
+.btn { padding: 10px 18px; font: inherit; font-weight: 600; color: var(--ink); background: transparent; border: 1px solid var(--field-border); border-radius: 6px; cursor: pointer; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { color: var(--honey-ink); background: var(--honey); border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.btn.primary:hover { background: var(--honey-hover); }
+.btn.primary:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+.btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn.small { padding: 5px 11px; font-size: .875rem; }
+.btn[disabled] { opacity: .55; cursor: default; transform: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+
+/* Meldungen */
+.notice { margin: 0 0 20px; padding: 12px 14px; border-radius: 8px; border: 1px solid transparent; max-width: 72ch; }
+.notice.err { color: var(--bad); background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+.notice.warn { color: var(--warn); background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.notice.info { color: var(--ink); background: var(--info-soft); border-color: var(--rule); }
+.notice.ok { color: var(--ok); background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.notice b { font-weight: 650; }
+.notice details { margin-top: 6px; font-size: .875rem; }
+.notice pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; font: .8125rem/1.4 var(--mono); }
+.notice p { margin: 0; }
+.notice p + p, .notice p + .actions { margin-top: 8px; }
+.notice ul { margin: 6px 0 0; padding-left: 20px; }
+#banner { max-width: none; }
+
+/* Fortschritt */
+.tasks { margin: 16px 0 4px; padding: 0; list-style: none; }
+.task { display: flex; gap: 12px; align-items: baseline; padding: 6px 0; color: var(--muted); }
+.task .tick { flex: none; position: relative; top: 3px; width: 16px; height: 16px; border: 2px solid var(--rule); border-radius: 50%; }
+.task[data-state="run"] { color: var(--ink); }
+.task[data-state="run"] .tick { border-color: var(--rule); border-top-color: var(--ink); animation: spin .9s linear infinite; }
+.task[data-state="done"] { color: var(--ink); }
+.task[data-state="done"] .tick { background: var(--ok); border-color: var(--ok); }
+.task[data-state="done"] .tick::after { content: ""; position: absolute; left: 3px; top: 0; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.task[data-state="fail"] { color: var(--bad); }
+.task[data-state="fail"] .tick { background: var(--bad); border-color: var(--bad); }
+.task .tnote { font-size: .875rem; color: var(--muted); overflow-wrap: anywhere; }
+.task[data-state="fail"] .tnote { color: var(--bad); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Ergebnis: die Urkunde */
+.urkunde { position: relative; margin: 0 0 22px; padding: 22px 24px 20px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); }
+.urkunde .names { margin: 0 112px 12px 0; font: 700 1.4rem/1.3 var(--head); overflow-wrap: anywhere; }
+.urkunde .names span { display: block; }
+.urkunde dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; }
+.urkunde dt { color: var(--muted); font-size: .9375rem; }
+.urkunde dd { margin: 0; overflow-wrap: anywhere; }
+.urkunde dd.fp { font: .8125rem/1.5 var(--mono); }
+.seal { position: absolute; top: 14px; right: 16px; width: 96px; height: 96px; color: var(--ink); transform: rotate(-8deg); }
+.seal.stamp { animation: stamp .55s cubic-bezier(.2, .9, .3, 1.2) both; }
+@keyframes stamp { from { opacity: 0; transform: rotate(-24deg) scale(1.5); } to { opacity: 1; transform: rotate(-8deg) scale(1); } }
+.perf { margin: 0 0 22px; border: 0; border-top: 2px dashed var(--rule); }
+#done-info { margin: 0 0 24px; }
+.pwline { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 22px; }
+.pwline code { padding: 4px 8px; font: .9375rem var(--mono); background: var(--bg); border-radius: 4px; border: 1px solid var(--rule); }
+
+/* Übersicht */
+.ov-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; margin: 0 0 18px; }
+.ov-head h2 { margin: 0; font: 650 1.375rem/1.3 var(--head); }
+.cards { display: grid; gap: 18px; }
+.card { padding: 22px 26px 20px; background: var(--sheet); border: 1px solid var(--rule); border-left: 6px solid var(--honey); border-radius: 10px; }
+.card[data-health="bad"] { border-left-color: var(--bad); }
+.card[data-health="ok"] { border-left-color: var(--ok); }
+.card header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin: 0 0 12px; }
+.card h3 { margin: 0; font: 700 1.2rem/1.35 var(--head); overflow-wrap: anywhere; }
+.chip { flex: none; padding: 3px 11px; font-size: .875rem; font-weight: 650; border-radius: 99px; background: var(--info-soft); }
+.chip.ok { color: var(--ok); background: var(--ok-soft); }
+.chip.warn { color: var(--warn); background: var(--warn-soft); }
+.chip.bad { color: var(--bad); background: var(--bad-soft); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 20px; margin: 0 0 16px; }
+.facts dt { color: var(--muted); font-size: .9375rem; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.st { font-weight: 600; }
+.st.ok { color: var(--ok); }
+.st.no { color: var(--bad); }
+.st.wait { color: var(--warn); }
+.menu { position: relative; }
+.menu summary { list-style: none; cursor: pointer; }
+.menu summary::-webkit-details-marker { display: none; }
+.menu .pop { position: absolute; z-index: 5; right: 0; top: calc(100% + 6px); display: grid; gap: 4px; min-width: 240px; padding: 8px; background: var(--sheet); border: 1px solid var(--field-border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.menu .pop .btn { text-align: left; border-color: transparent; }
+.menu .pop .btn:hover { background: var(--info-soft); border-color: transparent; }
+.jobbox { margin-top: 14px; padding-top: 6px; border-top: 1px solid var(--rule); }
+.logbox { margin: 14px 0 0; max-height: 260px; overflow: auto; padding: 10px 12px; font: .8125rem/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; }
+.empty { padding: 34px 28px; text-align: center; background: var(--sheet); border: 2px dashed var(--rule); border-radius: 10px; }
+.empty svg { width: 64px; height: 64px; margin: 0 0 8px; }
+.empty p { margin: 0 0 14px; color: var(--muted); }
+
+/* Wildcard-Assistent */
+.wizard { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 40px; align-items: start; }
+.rail { position: sticky; top: 24px; margin: 0; padding: 0; list-style: none; }
+.rail li { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 0 0 26px; color: var(--muted); font-size: .9375rem; }
+.rail li:last-child { padding-bottom: 0; }
+.rail li:not(:last-child)::after { content: ""; position: absolute; left: 12px; top: 28px; bottom: 2px; width: 2px; background: var(--rule); }
+.rail .mark { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid var(--rule); border-radius: 50%; font-size: .8125rem; font-weight: 600; background: var(--bg); }
+.rail .name { padding-top: 2px; }
+.rail li[data-state="current"] { color: var(--ink); font-weight: 600; }
+.rail li[data-state="current"] .mark { border-color: var(--ink); background: var(--honey); color: var(--honey-ink); }
+.rail li[data-state="done"] .mark { border-color: var(--ink); background: var(--ink); color: var(--sheet); }
+.rail li[data-state="done"] .mark span { display: none; }
+.rail li[data-state="done"] .mark::before { content: "✓"; }
+.rail li[data-state="done"]::after { background: var(--ink); }
+.record { margin: 0 0 18px; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.record header { padding: 10px 14px; font-weight: 600; background: var(--bg); }
+.record .row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--rule); }
+.record .k { font-size: .875rem; color: var(--muted); }
+.record .v { font-family: var(--mono); font-size: .875rem; overflow-wrap: anywhere; user-select: all; }
+.record .stl { grid-column: 2 / 4; margin-top: -4px; font-size: .8125rem; }
+.stl.ok { color: var(--ok); }
+.stl.no { color: var(--warn); }
+.done-line { margin: 0 0 14px; color: var(--ok); font-weight: 600; }
+
+/* Konverter */
+.seg { display: inline-flex; margin: 0 0 24px; border: 1px solid var(--field-border); border-radius: 8px; overflow: hidden; }
+.seg label { padding: 8px 16px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.seg label + label { border-left: 1px solid var(--field-border); }
+.seg label:has(input:checked) { color: var(--honey-ink); background: var(--honey); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.drop { margin: 0 0 22px; padding: 22px; text-align: center; border: 2px dashed var(--field-border); border-radius: 10px; color: var(--muted); }
+.drop.over { border-color: var(--ink); background: var(--honey-soft); color: var(--ink); }
+.drop p { margin: 0 0 10px; }
+.found { margin: 0 0 22px; padding: 0; list-style: none; font-size: .9375rem; }
+.found li { padding: 3px 0; }
+.found .y { color: var(--ok); font-weight: 600; }
+.found .n { color: var(--muted); }
+.out { margin: 0 0 18px; }
+.out .oh { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.out .oh b { font-weight: 600; }
+.out .oh span.btns { display: flex; gap: 8px; }
+.plain { margin: 0; padding-left: 20px; }
+.plain li { margin: 3px 0; overflow-wrap: anywhere; }
+
+/* Dialoge */
+dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; color: var(--ink); background: var(--sheet); border: 1px solid var(--field-border); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+dialog::backdrop { background: rgba(10, 10, 8, .55); }
+.dlg { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+.dlg h2 { margin: 0; padding: 20px 24px 6px; font: 650 1.25rem/1.3 var(--head); }
+.dlg .body { padding: 6px 24px 8px; overflow: auto; }
+.dlg .foot { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; padding: 14px 24px 20px; }
+.dlg p { margin: 0 0 10px; }
+.pk-list { margin: 10px 0 0; padding: 0; list-style: none; max-height: 300px; overflow: auto; border: 1px solid var(--rule); border-radius: 8px; }
+.pk-list li button { display: block; width: 100%; padding: 9px 12px; font: inherit; text-align: left; color: var(--ink); background: none; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; overflow-wrap: anywhere; }
+.pk-list li:last-child button { border-bottom: 0; }
+.pk-list li button:hover { background: var(--honey-soft); }
+.pk-empty { padding: 14px 12px; color: var(--muted); }
+
+/* Fuß */
+.foot-app { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: .875rem; }
+.foot-app b { color: var(--ink); font-weight: 650; }
+.foot-app .data { overflow-wrap: anywhere; }
+
+@media (max-width: 820px) {
+  .app { padding: 20px 16px 44px; }
+  .wizard { grid-template-columns: 1fr; gap: 20px; }
+  .rail { position: static; display: flex; gap: 8px; }
+  .rail li { flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; padding: 0; font-size: .8125rem; }
+  .rail li:not(:last-child)::after { left: 30px; right: -6px; top: 12px; bottom: auto; width: auto; height: 2px; }
+  .rail li:not([data-state="current"]) .name { display: none; }
+  .sheet { padding: 22px 18px 26px; }
+  .card { padding: 18px 18px 16px; }
+  .cols { grid-template-columns: 1fr; }
+  .record .row { grid-template-columns: 1fr auto; }
+  .record .k { grid-column: 1 / -1; margin-bottom: -6px; }
+  .record .stl { grid-column: 1 / -1; }
+  .urkunde .names { margin-right: 0; padding-top: 100px; }
+  .urkunde dl, .facts { grid-template-columns: 1fr; gap: 0; }
+  .urkunde dd, .facts dd { margin-bottom: 8px; }
+  .tabs { gap: 2px 20px; }
+  .actions { position: relative; }
+  .menu { position: static; }
+  .menu .pop { left: 0; right: 0; min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seal.stamp { animation: none; }
+  .task[data-state="run"] .tick { animation: none; border-top-color: var(--ink); border-right-color: var(--ink); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" role="img" aria-label="Certbumblebee">
+        <defs><clipPath id="bodyclip"><ellipse cx="24" cy="28.5" rx="7.2" ry="10.5"/></clipPath></defs>
+        <path d="M24 2 43 13v22L24 46 5 35V13z" fill="#1c1b19" stroke="#f5b81c" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="15.5" cy="22" rx="8" ry="4.4" transform="rotate(-35 15.5 22)" fill="#fff" opacity=".88"/>
+        <ellipse cx="32.5" cy="22" rx="8" ry="4.4" transform="rotate(35 32.5 22)" fill="#fff" opacity=".88"/>
+        <ellipse cx="24" cy="28.5" rx="7.2" ry="10.5" fill="#f5b81c"/>
+        <g clip-path="url(#bodyclip)" fill="#1c1b19"><rect x="14" y="26" width="20" height="3.2"/><rect x="14" y="32.2" width="20" height="3.2"/></g>
+        <circle cx="24" cy="15.5" r="4.2" fill="#f5b81c"/>
+        <path d="M22 12.6 19.2 8.4M26 12.6 28.8 8.4" stroke="#f5b81c" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <path d="M24 41.2 22.4 38.4h3.2z" fill="#f5b81c"/>
+      </svg>
+      <div>
+        <h1>Certbumblebee</h1>
+        <p class="tag">Zertifikate holen oder erstellen, ablegen, automatisch erneuern</p>
+      </div>
+    </div>
+    <p class="privacy">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+      <span>Läuft nur auf diesem Rechner. Schlüssel und Passwörter bleiben hier; gesprochen wird nur mit dem Zertifikatsanbieter.</span>
+    </p>
+  </header>
+
+  <div id="banner" class="notice" hidden role="status"></div>
+
+  <div class="tabs" role="tablist" aria-label="Funktion">
+    <button class="tab" role="tab" id="tab-issue" aria-selected="true" aria-controls="view-issue">Ausstellen</button>
+    <button class="tab" role="tab" id="tab-overview" aria-selected="false" aria-controls="view-overview" tabindex="-1">Übersicht</button>
+    <button class="tab" role="tab" id="tab-wild" aria-selected="false" aria-controls="view-wild" tabindex="-1">Wildcard / DNS (manuell)</button>
+    <button class="tab" role="tab" id="tab-convert" aria-selected="false" aria-controls="view-convert" tabindex="-1">PFX umwandeln</button>
+  </div>
+
+  <!-- ===== Ausstellen ===== -->
+  <section id="view-issue" role="tabpanel" aria-labelledby="tab-issue">
+    <div class="sheet">
+      <form id="form-issue" novalidate>
+        <div id="issue-form">
+          <h2 tabindex="-1">Neues Zertifikat einrichten</h2>
+          <p class="lead">Das Programm holt das Zertifikat bei Let’s Encrypt oder erstellt ein selbstsigniertes, legt die gewünschten Dateien (PFX, Zertifikat, Schlüssel …) im Zielordner ab und erneuert sie später von selbst.</p>
+
+          <fieldset class="group" id="fs-main">
+            <legend>Domains</legend>
+            <div class="field">
+              <label class="lbl" for="domains" id="domains-lbl">Für welche Domains soll das Zertifikat gelten?</label>
+              <textarea id="domains" rows="3" spellcheck="false" autocomplete="off" placeholder="www.beispiel.de&#10;beispiel.de"></textarea>
+              <p class="hint" id="domains-hint">Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag gibt es den Tab „Wildcard / DNS (manuell)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.</p>
+            </div>
+          </fieldset>
+
+          <fieldset class="group">
+            <legend>Woher kommt das Zertifikat?</legend>
+            <div class="choices">
+              <label class="choice"><input type="radio" name="method" value="standalone" checked><div><b>Let’s Encrypt, dieses Programm beantwortet die Prüfung selbst</b><span>Es öffnet kurz Port 80 auf diesem Server. Dafür darf dort kein anderer Webserver laufen, und Port 80 muss aus dem Internet erreichbar sein.</span></div></label>
+              <label class="choice"><input type="radio" name="method" value="webroot"><div><b>Let’s Encrypt, ein vorhandener Webserver beantwortet die Prüfung (IIS, nginx, Apache)</b><span>Das Programm legt kurz eine Prüfdatei im Webordner ab. Port 80 des Webservers muss aus dem Internet erreichbar sein.</span></div></label>
+              <label class="choice"><input type="radio" name="method" value="selfsigned"><div><b>Selbstsigniert (für interne Server)</b><span>Das Programm erstellt das Zertifikat selbst. Es braucht kein Internet, keine öffentliche Domain und keinen Port 80. Browser und Programme vertrauen ihm erst, wenn Sie es dort als vertrauenswürdig installieren.</span></div></label>
+            </div>
+            <div class="sub" id="m-selfsigned" hidden>
+              <div class="field" style="margin-bottom:0">
+                <label class="lbl" for="validdays">Gültigkeit</label>
+                <select id="validdays">
+                  <option value="365">1 Jahr</option>
+                  <option value="730">2 Jahre</option>
+                  <option value="1095">3 Jahre</option>
+                  <option value="1825">5 Jahre</option>
+                  <option value="3650">10 Jahre</option>
+                </select>
+                <p class="hint">Bei jeder Erneuerung entsteht ein neues Zertifikat mit neuem Schlüssel. Geräte, die dem alten Zertifikat vertrauen, müssen dem neuen erneut vertrauen. Wählen Sie deshalb lieber eine lange Gültigkeit.</p>
+              </div>
+            </div>
+            <div class="sub" id="m-standalone">
+              <div class="actions" style="margin-top:0"><button type="button" class="btn small" id="port-test">Port 80 prüfen</button></div>
+              <p class="test-result" id="port-result" hidden></p>
+              <label class="check" id="fw-wrap" style="margin-top:12px"><input type="checkbox" id="firewall" checked><span>Port 80 in der Windows-Firewall freigeben<small>Das Programm legt dafür eine eigene Regel an und entfernt sie beim Löschen der Einrichtung wieder.</small></span></label>
+            </div>
+            <div class="sub" id="m-webroot" hidden>
+              <div class="field" style="margin-bottom:0">
+                <label class="lbl" for="webroot">Webordner der Domain</label>
+                <textarea id="webroot" class="mono" rows="2" spellcheck="false" placeholder="C:\inetpub\wwwroot"></textarea>
+                <p class="hint">Ein Ordner pro Zeile, wenn die Domains in verschiedenen Ordnern liegen. Der Server muss die Datei unter /.well-known/acme-challenge/ ausliefern.</p>
+                <div class="actions"><button type="button" class="btn small" id="webroot-add">Ordner hinzufügen …</button></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="group" id="fs-files">
+            <legend>Wohin kommen die Dateien?</legend>
+            <div class="field">
+              <label class="lbl" for="target">Zielordner</label>
+              <div class="inline">
+                <input id="target" type="text" spellcheck="false" autocomplete="off" placeholder="D:\Zertifikate  oder  \\server\freigabe\zertifikate">
+                <button type="button" class="btn" id="target-browse">Durchsuchen …</button>
+                <button type="button" class="btn" id="target-test">Zugriff testen</button>
+              </div>
+              <p class="hint">Lokaler Ordner oder Netzwerkfreigabe im Format \\server\freigabe\ordner. Zugeordnete Laufwerke wie Z: sieht die automatische Aufgabe nicht.</p>
+              <p class="test-result" id="target-result" hidden></p>
+            </div>
+
+            <fieldset class="field outs" id="outs">
+              <legend>Welche Dateien sollen dort liegen?</legend>
+              <label class="check"><input type="checkbox" name="out" value="pfx" checked><span>PFX-Datei (.pfx)<small>Zertifikat, Kette und Schlüssel in einer Datei mit Passwort. Für IIS, Exchange und den Windows-Import.</small></span></label>
+              <label class="check"><input type="checkbox" name="out" value="cert"><span>Zertifikat (.crt, .cer oder .pem)<small>Nur das Zertifikat der Domain, ohne Schlüssel.</small></span></label>
+              <label class="check" id="lbl-chain"><input type="checkbox" name="out" value="chain"><span>Zwischenzertifikate (Kette)<small>Die Zertifikate der Aussteller zwischen Ihrem Zertifikat und dem Root.</small></span></label>
+              <label class="check"><input type="checkbox" name="out" value="fullchain"><span>Zertifikat mit Kette (fullchain)<small>Zertifikat und Zwischenzertifikate in einer Datei. Apache, nginx und viele Geräte erwarten genau diese Datei.</small></span></label>
+              <label class="check"><input type="checkbox" name="out" value="key"><span>Privater Schlüssel (.key)<small>Der Schlüssel liegt unverschlüsselt in der Datei.</small></span></label>
+              <label class="check"><input type="checkbox" name="out" value="csr"><span>Zertifikatsanforderung (.csr)<small>Die Anforderung (CSR), aus der das Zertifikat entstanden ist.</small></span></label>
+              <div class="notice warn" id="key-warn" hidden><p>Wer den Ordner lesen darf, kann mit dem Schlüssel das Zertifikat benutzen. Geben Sie Ordner und Freigabe nur den Konten frei, die den Schlüssel brauchen.</p></div>
+              <div class="field" id="certfmt-wrap" hidden>
+                <label class="lbl" for="certfmt">Endung und Format der Zertifikatsdateien</label>
+                <select id="certfmt">
+                  <option value="crt">.crt (Text, PEM)</option>
+                  <option value="cer">.cer (Text, PEM)</option>
+                  <option value="pem">.pem (Text)</option>
+                  <option value="cer-der">.cer (binär, DER)</option>
+                </select>
+                <p class="hint">PEM ist das Textformat mit „-----BEGIN CERTIFICATE-----“, das die meisten Server und Geräte erwarten. Binär (DER) brauchen vor allem ältere Windows-Programme. Zwischenzertifikate und fullchain bleiben bei DER im Textformat und enden auf .pem.</p>
+              </div>
+            </fieldset>
+
+            <div class="field">
+              <label class="lbl" for="filename">Dateiname (optional, ohne Endung)</label>
+              <input id="filename" type="text" spellcheck="false" autocomplete="off" placeholder="beispiel.de">
+              <p class="hint" id="out-preview" aria-live="polite"></p>
+            </div>
+            <div class="field" id="pfx-opts">
+              <label class="lbl" for="pfxpw">Passwort für die PFX-Datei</label>
+              <div class="inline">
+                <input id="pfxpw" type="password" autocomplete="new-password" spellcheck="false">
+                <button type="button" class="btn" id="pw-gen">Zufällig</button>
+                <button type="button" class="btn" id="pw-show" aria-pressed="false">Anzeigen</button>
+              </div>
+              <p class="hint">Das Passwort wird für die Erneuerung geschützt auf diesem Rechner gespeichert (Windows-Datenschutz-API, nur für Administratoren und das Systemkonto lesbar). Bitte zusätzlich selbst notieren, Sie brauchen es beim Import.</p>
+            </div>
+          </fieldset>
+
+          <fieldset class="group" id="fs-auto">
+            <legend>Erneuerung</legend>
+            <label class="check"><input type="checkbox" id="auto" checked><span>Automatisch erneuern<small>Das Programm legt dafür eine Aufgabe in der Windows-Aufgabenplanung an. Sie prüft täglich und erneuert, sobald weniger als ein Drittel der Laufzeit übrig ist (bei Let’s Encrypt etwa 30 Tage vor Ablauf).</small></span></label>
+            <div class="sub" id="auto-wrap">
+              <div class="cols">
+                <div class="field">
+                  <label class="lbl" for="tasktime">Uhrzeit der täglichen Prüfung</label>
+                  <input id="tasktime" type="time" value="03:00">
+                </div>
+                <div class="field">
+                  <label class="lbl" for="runas">Konto der Aufgabe</label>
+                  <select id="runas"><option value="system">Systemkonto (empfohlen)</option><option value="user">Bestimmtes Konto …</option></select>
+                </div>
+              </div>
+              <div id="user-wrap" hidden>
+                <div class="cols">
+                  <div class="field"><label class="lbl" for="user">Konto</label><input id="user" type="text" spellcheck="false" autocomplete="off" placeholder="DOMÄNE\dienstkonto"></div>
+                  <div class="field"><label class="lbl" for="userpw">Windows-Passwort des Kontos</label><input id="userpw" type="password" autocomplete="new-password" spellcheck="false"></div>
+                </div>
+                <p class="hint" style="margin-top:-8px">Das Konto braucht das Recht „Als Batchauftrag anmelden“. Das Passwort geht nur an die Aufgabenplanung und wird nicht gespeichert.</p>
+              </div>
+              <div class="notice info" id="unc-note" hidden style="margin-top:12px"></div>
+              <div class="field" style="margin-top:12px">
+                <label class="lbl" for="taskname">Name der Aufgabe (optional)</label>
+                <input id="taskname" type="text" spellcheck="false" autocomplete="off" placeholder="Certbumblebee Erneuerung beispiel-de">
+              </div>
+            </div>
+          </fieldset>
+
+          <details class="more">
+            <summary>Weitere Einstellungen</summary>
+            <div id="acme-only">
+            <div class="field">
+              <label class="lbl" for="email">E-Mail-Adresse (optional)</label>
+              <input id="email" type="email" autocomplete="email" placeholder="name@beispiel.de">
+              <p class="hint">Der Anbieter schreibt nur bei wichtigen Hinweisen zum Konto.</p>
+            </div>
+            <div class="field">
+              <label class="lbl" for="server">Zertifikatsanbieter</label>
+              <select id="server">
+                <option value="prod">Let’s Encrypt (echte Zertifikate)</option>
+                <option value="staging">Let’s Encrypt Test (zum Ausprobieren, nicht vertrauenswürdig)</option>
+                <option value="custom">Eigener ACME-Server …</option>
+              </select>
+              <p class="hint">Zum ersten Ausprobieren die Testumgebung wählen: Sie hat großzügigere Limits. Sie prüft auch, ob Port 80 wirklich aus dem Internet erreichbar ist.</p>
+            </div>
+            <div class="field" id="custom-wrap" hidden>
+              <label class="lbl" for="customurl">Adresse des ACME-Verzeichnisses</label>
+              <input id="customurl" type="url" placeholder="https://ca.beispiel.de/acme/directory" spellcheck="false">
+            </div>
+            </div>
+            <div class="cols">
+              <div class="field">
+                <label class="lbl" for="bits">Schlüssellänge</label>
+                <select id="bits"><option value="2048">RSA 2048 (Standard)</option><option value="3072">RSA 3072</option><option value="4096">RSA 4096 (langsamer)</option></select>
+              </div>
+              <div class="field">
+                <label class="lbl" for="fmt">Verschlüsselung der PFX-Datei</label>
+                <select id="fmt"><option value="compat">Kompatibel (empfohlen)</option><option value="aes">Modern (AES-256)</option></select>
+              </div>
+            </div>
+            <p class="hint" style="margin-top:-8px">„Kompatibel“ lässt sich auf allen Windows-Versionen, in IIS und Exchange importieren. „Modern“ können ältere Windows-Versionen nicht lesen.</p>
+          </details>
+
+          <label class="check" id="tos-wrap"><input type="checkbox" id="tos"><span>Ich akzeptiere die <a href="https://letsencrypt.org/repository/" target="_blank" rel="noopener noreferrer">Nutzungsbedingungen</a> des Zertifikatsanbieters.</span></label>
+
+          <div class="notice err" id="err-issue" role="alert" hidden></div>
+          <div class="notice warn" id="exists-issue" role="alert" hidden></div>
+          <ul class="tasks" id="prog-issue" aria-live="polite"></ul>
+          <div class="actions"><button type="submit" class="btn primary" id="go-issue">Zertifikat ausstellen</button></div>
+        </div>
+
+        <div id="issue-done" hidden>
+          <h2 tabindex="-1" id="done-h">Ihr Zertifikat ist fertig</h2>
+          <p class="lead" id="done-lead"></p>
+          <div class="notice warn" id="done-self" hidden><p><b>Dieses Zertifikat ist selbstsigniert.</b> Browser und Programme vertrauen ihm erst, wenn Sie es dort als vertrauenswürdig installieren: Die Zertifikatsdatei (.crt oder .cer, nicht den Schlüssel) in „Vertrauenswürdige Stammzertifizierungsstellen“ importieren, im Firmennetz am besten per Gruppenrichtlinie. Nach jeder Erneuerung gilt das für das neue Zertifikat erneut.</p></div>
+          <div class="notice warn" id="done-staging" hidden>Das ist ein Testzertifikat. Browser und Server vertrauen ihm nicht. Richten Sie es noch einmal mit „Let’s Encrypt (echte Zertifikate)“ ein.</div>
+          <article class="urkunde" id="done-urkunde" aria-label="Zertifikatsdetails"></article>
+          <div id="done-info"></div>
+          <hr class="perf">
+          <div class="actions"><button type="button" class="btn primary" id="to-overview">Zur Übersicht</button><button type="button" class="btn" id="issue-again">Weiteres Zertifikat einrichten</button></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== Übersicht ===== -->
+  <section id="view-overview" role="tabpanel" aria-labelledby="tab-overview" hidden>
+    <div class="ov-head">
+      <h2>Eingerichtete Zertifikate</h2>
+      <button type="button" class="btn small" id="ov-refresh">Aktualisieren</button>
+    </div>
+    <div id="ov-msg"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <!-- ===== Wildcard / DNS (manuell) ===== -->
+  <section id="view-wild" role="tabpanel" aria-labelledby="tab-wild" hidden>
+    <div class="wizard">
+      <ol class="rail" id="wrail" aria-label="Fortschritt">
+        <li data-n="1"><span class="mark"><span>1</span></span><span class="name">Angaben</span></li>
+        <li data-n="2"><span class="mark"><span>2</span></span><span class="name">DNS-Eintrag anlegen</span></li>
+        <li data-n="3"><span class="mark"><span>3</span></span><span class="name">Ausstellen</span></li>
+        <li data-n="4"><span class="mark"><span>4</span></span><span class="name">Herunterladen</span></li>
+      </ol>
+      <div class="sheet">
+        <form class="panel" data-step="1" id="wform" novalidate>
+          <h2 tabindex="-1">Wildcard-Zertifikat holen</h2>
+          <p class="lead">Ein Wildcard-Zertifikat (*.beispiel.de) deckt alle Subdomains ab. Let’s Encrypt prüft es nur über einen DNS-Eintrag, den Sie bei Ihrem DNS-Anbieter selbst anlegen. Dieses Programm kann ihn nicht setzen, deshalb gibt es hier keine automatische Erneuerung: Etwa alle 60 Tage müssen Sie den Vorgang wiederholen.</p>
+          <fieldset id="wfs" style="border:0;padding:0;margin:0;min-width:0">
+            <div class="field">
+              <label class="lbl" for="wdomains">Domains</label>
+              <textarea id="wdomains" rows="3" spellcheck="false" autocomplete="off" placeholder="*.beispiel.de&#10;beispiel.de"></textarea>
+              <p class="hint">Eine Domain pro Zeile. Die Hauptdomain (beispiel.de) gehört nicht zur Wildcard und muss extra eingetragen werden.</p>
+            </div>
+            <div class="field">
+              <label class="lbl" for="wpfxpw">Passwort für die PFX-Datei</label>
+              <div class="inline">
+                <input id="wpfxpw" type="password" autocomplete="new-password" spellcheck="false">
+                <button type="button" class="btn" id="wpw-gen">Zufällig</button>
+                <button type="button" class="btn" id="wpw-show" aria-pressed="false">Anzeigen</button>
+              </div>
+              <p class="hint">Es wird nirgends gespeichert. Bitte notieren.</p>
+            </div>
+            <div class="field">
+              <label class="lbl" for="wemail">E-Mail-Adresse (optional)</label>
+              <input id="wemail" type="email" autocomplete="email" placeholder="name@beispiel.de">
+            </div>
+            <details class="more">
+              <summary>Erweiterte Einstellungen</summary>
+              <div class="field">
+                <label class="lbl" for="wserver">Zertifikatsanbieter</label>
+                <select id="wserver">
+                  <option value="prod">Let’s Encrypt (echte Zertifikate)</option>
+                  <option value="staging">Let’s Encrypt Test (zum Ausprobieren, nicht vertrauenswürdig)</option>
+                  <option value="custom">Eigener ACME-Server …</option>
+                </select>
+              </div>
+              <div class="field" id="wcustom-wrap" hidden>
+                <label class="lbl" for="wcustomurl">Adresse des ACME-Verzeichnisses</label>
+                <input id="wcustomurl" type="url" placeholder="https://ca.beispiel.de/acme/directory" spellcheck="false">
+              </div>
+              <div class="cols">
+                <div class="field">
+                  <label class="lbl" for="wbits">Schlüssellänge</label>
+                  <select id="wbits"><option value="2048">RSA 2048 (Standard)</option><option value="3072">RSA 3072</option><option value="4096">RSA 4096 (langsamer)</option></select>
+                </div>
+                <div class="field">
+                  <label class="lbl" for="walg">Verschlüsselung der PFX-Datei</label>
+                  <select id="walg"><option value="3des">Kompatibel (empfohlen)</option><option value="aes256">Modern (AES-256)</option></select>
+                </div>
+              </div>
+            </details>
+            <label class="check"><input type="checkbox" id="wtos"><span>Ich akzeptiere die <a href="https://letsencrypt.org/repository/" target="_blank" rel="noopener noreferrer">Nutzungsbedingungen</a> des Zertifikatsanbieters.</span></label>
+          </fieldset>
+          <div class="notice err" id="werr1" role="alert" hidden></div>
+          <ul class="tasks" id="wprog1" aria-live="polite"></ul>
+          <div class="actions"><button type="submit" class="btn primary" id="wgo1">Weiter zur Bestätigung</button></div>
+        </form>
+
+        <div class="panel" data-step="2" hidden>
+          <h2 tabindex="-1">Beweisen Sie, dass die Domain Ihnen gehört</h2>
+          <p class="lead" id="wlead2"></p>
+          <div id="wrecords"></div>
+          <div class="notice warn">Dieses Fenster bitte offen lassen, bis die Datei heruntergeladen ist. Der private Schlüssel existiert nur hier.</div>
+          <div class="actions">
+            <button type="button" class="btn primary" id="wgo2">Bestätigung starten</button>
+            <button type="button" class="btn" id="wback2">Abbrechen</button>
+          </div>
+        </div>
+
+        <div class="panel" data-step="3" hidden>
+          <h2 tabindex="-1">Zertifikat wird ausgestellt</h2>
+          <p class="lead">Das dauert meist weniger als eine Minute.</p>
+          <ul class="tasks" id="wprog3" aria-live="polite"></ul>
+          <div class="notice err" id="werr3" role="alert" hidden></div>
+          <div class="actions" id="wact3" hidden><button type="button" class="btn primary" id="wrestart3">Von vorn beginnen</button></div>
+        </div>
+
+        <div class="panel" data-step="4" hidden>
+          <h2 tabindex="-1">Ihr Zertifikat ist fertig</h2>
+          <p class="lead">Laden Sie die PFX-Datei herunter und importieren Sie sie auf dem Zielsystem. Das Passwort steht unten.</p>
+          <div class="notice warn" id="wstagingwarn" hidden>Das ist ein Testzertifikat. Browser und Server vertrauen ihm nicht. Wiederholen Sie den Vorgang mit „Let’s Encrypt (echte Zertifikate)“ für den Einsatz.</div>
+          <article class="urkunde" id="wurkunde" aria-label="Zertifikatsdetails"></article>
+          <div class="pwline"><span>PFX-Passwort:</span><code id="wpwshow">••••••••</code><button type="button" class="btn small" id="wpw4-show">Anzeigen</button><button type="button" class="btn small" id="wpw4-copy">Kopieren</button></div>
+          <hr class="perf">
+          <div class="actions"><button type="button" class="btn primary" id="wdl-pfx">PFX-Datei herunterladen</button><button type="button" class="btn" id="wagain">Weiteres Zertifikat beantragen</button></div>
+          <details class="more" style="margin-top:22px" id="wmore">
+            <summary>Weitere Dateien (Zertifikat, Kette, Schlüssel, Anforderung)</summary>
+            <div class="actions">
+              <button type="button" class="btn small" id="wdl-crt">Zertifikat (.crt)</button>
+              <button type="button" class="btn small" id="wdl-cer">Zertifikat (.cer, Text)</button>
+              <button type="button" class="btn small" id="wdl-cerder">Zertifikat (.cer, binär)</button>
+              <button type="button" class="btn small" id="wdl-cert">Zertifikat (.pem)</button>
+            </div>
+            <div class="actions">
+              <button type="button" class="btn small" id="wdl-chain">Zwischenzertifikate (chain.pem)</button>
+              <button type="button" class="btn small" id="wdl-full">Zertifikat mit Kette (fullchain.pem)</button>
+            </div>
+            <div class="actions">
+              <button type="button" class="btn small" id="wdl-key">Privater Schlüssel (.key)</button>
+              <button type="button" class="btn small" id="wdl-csr">Anforderung (.csr)</button>
+            </div>
+            <p class="hint">Der private Schlüssel liegt unverschlüsselt in der Datei. Nur dort ablegen, wo er gebraucht wird, und nicht per E-Mail verschicken.</p>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PFX umwandeln ===== -->
+  <section id="view-convert" role="tabpanel" aria-labelledby="tab-convert" hidden>
+    <div class="sheet">
+      <div class="seg" role="radiogroup" aria-label="Richtung">
+        <label><input type="radio" name="dir" value="topfx" checked>PEM zu PFX</label>
+        <label><input type="radio" name="dir" value="topem">PFX zu PEM</label>
+      </div>
+
+      <div id="conv-topfx">
+        <h2>PEM-Dateien zu einer PFX-Datei bündeln</h2>
+        <p class="lead">Ziehen Sie Zertifikat, Kette und privaten Schlüssel in das Feld. Das Programm sortiert sie selbst. Alles geschieht in diesem Browserfenster.</p>
+        <div class="drop" id="drop">
+          <p>Dateien hierher ziehen (cert.pem, chain.pem, fullchain.pem, privkey.pem …)</p>
+          <button type="button" class="btn" id="pick-pem">Dateien auswählen</button>
+          <input type="file" id="file-pem" multiple hidden>
+        </div>
+        <ul class="found" id="found"></ul>
+        <div class="field">
+          <label class="lbl" for="pem-certs">Zertifikat und Kette</label>
+          <textarea id="pem-certs" class="mono" rows="5" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pem-key">Privater Schlüssel</label>
+          <textarea id="pem-key" class="mono" rows="5" spellcheck="false" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+        </div>
+        <div class="cols">
+          <div class="field">
+            <label class="lbl" for="pem-keypw">Passwort des Schlüssels</label>
+            <input id="pem-keypw" type="password" autocomplete="off" spellcheck="false">
+            <p class="hint">Nur nötig, wenn der Schlüssel selbst verschlüsselt ist.</p>
+          </div>
+          <div class="field">
+            <label class="lbl" for="pem-pfxpw">Passwort für die PFX-Datei</label>
+            <div class="inline"><input id="pem-pfxpw" type="password" autocomplete="new-password" spellcheck="false"><button type="button" class="btn" id="pem-gen">Zufällig</button></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pem-alg">Verschlüsselung</label>
+          <select id="pem-alg"><option value="3des">Kompatibel (empfohlen)</option><option value="aes256">Modern (AES-256)</option></select>
+        </div>
+        <div class="notice err" id="err-c1" role="alert" hidden></div>
+        <div class="notice info" id="ok-c1" hidden></div>
+        <div class="actions"><button type="button" class="btn primary" id="make-pfx">PFX erstellen und herunterladen</button></div>
+      </div>
+
+      <div id="conv-topem" hidden>
+        <h2>PFX-Datei in PEM-Dateien zerlegen</h2>
+        <p class="lead">Wählen Sie die PFX-Datei und geben Sie ihr Passwort ein. Zertifikat, Kette und Schlüssel erscheinen darunter.</p>
+        <div class="field">
+          <label class="lbl" for="file-pfx">PFX- oder P12-Datei</label>
+          <input id="file-pfx" type="file" accept=".pfx,.p12">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pfx-pw">Passwort</label>
+          <input id="pfx-pw" type="password" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="notice err" id="err-c2" role="alert" hidden></div>
+        <div class="actions"><button type="button" class="btn primary" id="open-pfx">PFX auslesen</button></div>
+        <div id="pem-out" style="margin-top:26px"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot-app">
+    <span><b id="foot-name">Certbumblebee</b> <span id="foot-version"></span> · Programmiert von Dzhan Chelebi</span>
+    <span class="data" id="foot-data"></span>
+    <button type="button" class="btn small" id="quit">Programm beenden</button>
+  </footer>
+</div>
+
+<!-- Ordnerauswahl -->
+<dialog id="picker" aria-labelledby="pk-title">
+  <div class="dlg">
+    <h2 id="pk-title">Ordner wählen</h2>
+    <div class="body">
+      <div class="inline">
+        <input id="pk-path" type="text" spellcheck="false" autocomplete="off" aria-label="Pfad" placeholder="Pfad eingeben, z. B. D:\Zertifikate oder \\server\freigabe">
+        <button type="button" class="btn" id="pk-open">Öffnen</button>
+        <button type="button" class="btn" id="pk-up">Nach oben</button>
+      </div>
+      <p class="test-result no" id="pk-err" hidden></p>
+      <ul class="pk-list" id="pk-list"></ul>
+    </div>
+    <div class="foot">
+      <button type="button" class="btn" id="pk-cancel">Abbrechen</button>
+      <button type="button" class="btn primary" id="pk-choose">Diesen Ordner wählen</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Rückfrage -->
+<dialog id="confirm" aria-labelledby="cf-title">
+  <div class="dlg">
+    <h2 id="cf-title"></h2>
+    <div class="body" id="cf-body"></div>
+    <div class="foot">
+      <button type="button" class="btn" id="cf-no">Abbrechen</button>
+      <button type="button" class="btn primary" id="cf-yes">OK</button>
+    </div>
+  </div>
+</dialog>
+
+<script>/*@@FORGE@@*/</script>
+<script>try {/*@@CORE@@*/} catch (e) { window.LE_ERROR = e && e.message || String(e); }</script>
+<script>
+(function () {
+  'use strict';
+  var LE = window.LE;
+  var INFO = { windows: true, elevated: true };
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* ---------- Hilfsfunktionen ---------- */
+  function fmtDate(d) { return new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function fmtDateTime(d) { return new Date(d).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function download(name, data, type) {
+    var blob = new Blob([data], { type: type || 'application/octet-stream' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  function copyText(text, btn) {
+    function done() { if (!btn) return; var t = btn.textContent; btn.textContent = 'Kopiert'; setTimeout(function () { btn.textContent = t; }, 1400); }
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { /* ignorieren */ }
+      ta.remove();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  function genPassword(len) {
+    var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', limit = 256 - (256 % alphabet.length), out = '';
+    while (out.length < (len || 20)) {
+      var buf = crypto.getRandomValues(new Uint8Array(64));
+      for (var i = 0; i < buf.length && out.length < (len || 20); i++) if (buf[i] < limit) out += alphabet[buf[i] % alphabet.length];
+    }
+    return out;
+  }
+  function showErr(el, err, hint) {
+    var msg = err && err.message ? err.message : String(err);
+    var tech = '';
+    if (err && err.name === 'AcmeError' && (err.type || err.detail)) tech = (err.type || '') + (err.detail ? '\n' + err.detail : '');
+    else if (err && err.detail) tech = err.detail;
+    el.hidden = false;
+    el.innerHTML = '<p><b>' + esc(msg) + '</b></p>' + (hint ? '<p>' + esc(hint) + '</p>' : '') +
+      (tech && tech !== msg ? '<details><summary>Technische Details</summary><pre>' + esc(tech) + '</pre></details>' : '');
+  }
+  function hideEl(el) { el.hidden = true; el.innerHTML = ''; }
+  function setResult(el, ok, text) { el.hidden = false; el.className = 'test-result ' + (ok ? 'ok' : 'no'); el.textContent = text; }
+
+  function progress(ul, tasks) {
+    ul.innerHTML = tasks.map(function (t) {
+      return '<li class="task" data-id="' + esc(t.id) + '" data-state="wait"><span class="tick" aria-hidden="true"></span><span><span class="tl">' + esc(t.label) + '</span> <span class="tnote"></span></span></li>';
+    }).join('');
+    function el(id) { return $$('.task', ul).filter(function (e) { return e.dataset.id === id; })[0]; }
+    var current = null;
+    return {
+      start: function (id, note) { current = id; var e = el(id); e.dataset.state = 'run'; $('.tnote', e).textContent = note || ''; },
+      done: function (id, note) { var e = el(id); e.dataset.state = 'done'; if (note !== undefined) $('.tnote', e).textContent = note; },
+      fail: function (id) { var e = el(id || current); if (e) e.dataset.state = 'fail'; },
+      failRunning: function () { $$('.task[data-state="run"]', ul).forEach(function (e) { e.dataset.state = 'fail'; }); }
+    };
+  }
+
+  /* ---------- Verbindung zum Programm ---------- */
+  var ended = false;
+  function banner(kind, html) {
+    var b = $('#banner'); b.hidden = false; b.className = 'notice ' + kind; b.innerHTML = html;
+  }
+  function programGone(why) {
+    if (ended) return; ended = true;
+    banner('err', '<p><b>' + esc(why) + '</b></p><p>Bitte Certbumblebee neu starten. Das Programmfenster zeigt einen neuen Link; mit Enter erzeugt es einen frischen.</p>');
+    $$('button, input, textarea, select').forEach(function (e) { if (e.id !== 'quit') e.disabled = true; });
+  }
+  function ApiError(msg, status, data) { var e = new Error(msg); e.status = status; e.data = data; e.detail = data && data.detail; return e; }
+  async function api(method, path, body) {
+    var opt = { method: method, credentials: 'same-origin', headers: {} };
+    if (method !== 'GET') { opt.headers['Content-Type'] = 'application/json'; opt.headers['X-ZA'] = '1'; opt.body = JSON.stringify(body || {}); }
+    var res;
+    try { res = await fetch(path, opt); }
+    catch (e) { programGone('Das Programm antwortet nicht mehr. Wurde es beendet oder das Fenster geschlossen?'); throw ApiError('Keine Verbindung zum Programm.', 0, null); }
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* kein JSON */ }
+    if (res.status === 401 || res.status === 403 && data == null) { programGone('Die Sitzung ist abgelaufen.'); throw ApiError('Sitzung abgelaufen.', res.status, data); }
+    if (!res.ok) throw ApiError((data && data.error) || ('Fehler ' + res.status), res.status, data);
+    return data;
+  }
+
+  // Wartet auf einen Hintergrundvorgang und zeigt seine Schritte in <ul>.
+  async function runJob(jobId, ul) {
+    var fails = 0;
+    for (;;) {
+      var v;
+      try { v = await api('GET', '/api/jobs/' + encodeURIComponent(jobId)); fails = 0; }
+      catch (e) { if (ended || ++fails > 5) throw e; await sleep(800); continue; }
+      renderSteps(ul, v.steps || []);
+      if (v.state !== 'run') return v;
+      await sleep(600);
+    }
+  }
+  function renderSteps(ul, steps) {
+    var map = { wait: 'wait', run: 'run', ok: 'done', fail: 'fail' };
+    ul.innerHTML = steps.map(function (s) {
+      return '<li class="task" data-state="' + (map[s.state] || 'wait') + '"><span class="tick" aria-hidden="true"></span><span><span class="tl">' + esc(s.label) + '</span> <span class="tnote">' + esc(s.note || '') + '</span></span></li>';
+    }).join('');
+  }
+
+  /* ---------- Dialoge ---------- */
+  function confirmBox(title, html, okLabel, danger) {
+    return new Promise(function (resolve) {
+      var dlg = $('#confirm'), result = false;
+      $('#cf-title').textContent = title; $('#cf-body').innerHTML = html;
+      var yes = $('#cf-yes'); yes.textContent = okLabel || 'OK'; yes.className = 'btn ' + (danger ? 'danger' : 'primary');
+      function onClose() { dlg.removeEventListener('close', onClose); resolve(result); }
+      dlg.addEventListener('close', onClose);
+      $('#cf-yes').onclick = function () { result = true; dlg.close(); };
+      $('#cf-no').onclick = function () { dlg.close(); };
+      dlg.showModal();
+    });
+  }
+
+  function pickFolder(start) {
+    return new Promise(function (resolve) {
+      var dlg = $('#picker'), cur = '', chosen = null, parent = '', atRoot = false;
+      var list = $('#pk-list'), pathIn = $('#pk-path'), err = $('#pk-err');
+      function load(p, fallback) {
+        api('GET', '/api/fs?path=' + encodeURIComponent(p || '')).then(function (l) {
+          err.hidden = true;
+          cur = l.path || ''; parent = l.parent || ''; atRoot = !!l.root || (!l.parent && !INFO.windows);
+          pathIn.value = cur;
+          $('#pk-choose').disabled = !cur;
+          $('#pk-up').disabled = !cur;
+          list.innerHTML = l.entries.length
+            ? l.entries.map(function (e, i) { return '<li><button type="button" data-i="' + i + '">' + esc(e.name) + '</button></li>'; }).join('')
+            : '<li class="pk-empty">Keine Unterordner.</li>';
+          $$('button', list).forEach(function (b) { b.addEventListener('click', function () { load(l.entries[+b.dataset.i].path); }); });
+          if (!l.root && !INFO.windows && !l.parent) $('#pk-up').disabled = true;
+        }).catch(function (e) {
+          if (fallback) { load(''); return; }
+          err.hidden = false; err.textContent = e.message;
+        });
+      }
+      function onClose() { dlg.removeEventListener('close', onClose); resolve(chosen); }
+      dlg.addEventListener('close', onClose);
+      $('#pk-open').onclick = function () { load(pathIn.value.trim()); };
+      pathIn.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); load(pathIn.value.trim()); } };
+      $('#pk-up').onclick = function () { load(parent); };
+      $('#pk-cancel').onclick = function () { dlg.close(); };
+      $('#pk-choose').onclick = function () { chosen = cur; dlg.close(); };
+      dlg.showModal();
+      load(start || '', true);
+    });
+  }
+
+  /* ---------- Tabs ---------- */
+  var TABS = ['issue', 'overview', 'wild', 'convert'];
+  function selectTab(which) {
+    TABS.forEach(function (k) {
+      var on = k === which;
+      var t = $('#tab-' + k); t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      $('#view-' + k).hidden = !on;
+    });
+    if (which === 'overview') loadOverview();
+  }
+  $$('.tab').forEach(function (t) {
+    t.addEventListener('click', function () { selectTab(t.id.replace('tab-', '')); });
+    t.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        var idx = TABS.indexOf(t.id.replace('tab-', '')), d = e.key === 'ArrowRight' ? 1 : -1;
+        var o = TABS[(idx + d + TABS.length) % TABS.length]; selectTab(o); $('#tab-' + o).focus();
+      }
+    });
+  });
+
+  /* ---------- Ausstellen ---------- */
+  var issuing = false, running = 0;
+  window.addEventListener('beforeunload', function (e) { if (issuing || running > 0) { e.preventDefault(); e.returnValue = ''; } });
+
+  function syncMethod() {
+    var m = $('input[name="method"]:checked').value, self = m === 'selfsigned';
+    $('#m-standalone').hidden = m !== 'standalone'; $('#m-webroot').hidden = m !== 'webroot'; $('#m-selfsigned').hidden = !self;
+    $('#acme-only').hidden = self; $('#tos-wrap').hidden = self;
+    $('#lbl-chain').hidden = self;
+    if (self) $('input[name="out"][value="chain"]').checked = false;
+    $('#domains-lbl').textContent = self ? 'Für welche Namen soll das Zertifikat gelten?' : 'Für welche Domains soll das Zertifikat gelten?';
+    $('#domains').placeholder = self ? 'server.firma.local\nintranet\n192.168.1.20' : 'www.beispiel.de\nbeispiel.de';
+    $('#domains-hint').textContent = self
+      ? 'Ein Name pro Zeile. Erlaubt sind Hostnamen (auch ohne Endung wie „intranet“), Wildcards (*.firma.local) und IP-Adressen. Der Name muss so lauten, wie Clients den Server aufrufen, sonst warnt der Browser.'
+      : 'Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag gibt es den Tab „Wildcard / DNS (manuell)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.';
+    syncOuts();
+  }
+  $$('input[name="method"]').forEach(function (r) { r.addEventListener('change', syncMethod); });
+  $('#server').addEventListener('change', function () { $('#custom-wrap').hidden = this.value !== 'custom'; });
+  $('#runas').addEventListener('change', function () { $('#user-wrap').hidden = this.value !== 'user'; syncUnc(); });
+  $('#auto').addEventListener('change', function () { $('#auto-wrap').hidden = !this.checked; syncUnc(); });
+  $('#target').addEventListener('input', syncUnc);
+  function syncUnc() {
+    var n = $('#unc-note'), t = $('#target').value.trim();
+    var unc = /^\\\\/.test(t) && $('#auto').checked;
+    if (!unc) { n.hidden = true; return; }
+    n.hidden = false;
+    n.innerHTML = $('#runas').value === 'system'
+      ? '<p>Die Aufgabe läuft als Systemkonto und greift über das Computerkonto dieses Servers auf die Freigabe zu' + (INFO.computerAccount ? ' (<b>' + esc(INFO.computerAccount) + '</b>)' : '') + '. Dieses Konto braucht Schreibrechte auf Freigabe und Ordner. Nach der Einrichtung zeigt „Aufgabe testen“ in der Übersicht, ob es klappt.</p>'
+      : '<p>Das gewählte Konto braucht Schreibrechte auf der Freigabe.</p>';
+  }
+  $('#pw-gen').addEventListener('click', function () { var i = $('#pfxpw'); i.value = genPassword(20); i.type = 'text'; $('#pw-show').textContent = 'Verbergen'; $('#pw-show').setAttribute('aria-pressed', 'true'); });
+  $('#pw-show').addEventListener('click', function () { var i = $('#pfxpw'), on = i.type === 'password'; i.type = on ? 'text' : 'password'; this.textContent = on ? 'Verbergen' : 'Anzeigen'; this.setAttribute('aria-pressed', on); });
+
+  $('#port-test').addEventListener('click', async function () {
+    var b = this; b.disabled = true;
+    try { var r = await api('POST', '/api/port80', {}); setResult($('#port-result'), r.ok, r.message); }
+    catch (e) { setResult($('#port-result'), false, e.message); }
+    b.disabled = false;
+  });
+  $('#target-browse').addEventListener('click', async function () {
+    var p = await pickFolder($('#target').value.trim());
+    if (p) { $('#target').value = p; syncUnc(); hideEl($('#target-result')); }
+  });
+  $('#target-test').addEventListener('click', async function () {
+    var t = $('#target').value.trim(), b = this;
+    if (!t) { setResult($('#target-result'), false, 'Bitte zuerst einen Zielordner angeben.'); return; }
+    b.disabled = true;
+    try { var r = await api('POST', '/api/fs/test', { path: t }); setResult($('#target-result'), r.ok, r.message); }
+    catch (e) { setResult($('#target-result'), false, e.message); }
+    b.disabled = false;
+  });
+  $('#webroot-add').addEventListener('click', async function () {
+    var p = await pickFolder('');
+    if (!p) return;
+    var ta = $('#webroot'), v = ta.value.replace(/\s+$/, '');
+    ta.value = (v ? v + '\n' : '') + p;
+  });
+
+  /* ---------- Auswahl der Dateien ---------- */
+  var OUT_LABEL = { pfx: 'PFX-Datei', cert: 'Zertifikat', chain: 'Zwischenzertifikate', fullchain: 'Zertifikat mit Kette', key: 'Privater Schlüssel', csr: 'Zertifikatsanforderung' };
+  function checkedOuts() { return $$('input[name="out"]').filter(function (c) { return c.checked; }).map(function (c) { return c.value; }); }
+  // Dieselbe Namensregel wie im Programm: Endung entfernen, dann pro Dateiart eine Endung anhängen.
+  function outBase(input, firstDomain) {
+    var b = (input || '').trim() || String(firstDomain || 'beispiel.de').replace(/[\[\]]/g, '').replace(/^\*\./, '_.').replace(/:/g, '-');
+    var l = b.toLowerCase();
+    ['.pfx', '.p12', '.cer', '.crt', '.pem', '.key', '.csr'].some(function (e) { if (l.slice(-e.length) === e) { b = b.slice(0, -e.length); return true; } return false; });
+    return b;
+  }
+  function outNames(kinds, fmt, base) {
+    var ext = fmt === 'cer' || fmt === 'cer-der' ? '.cer' : fmt === 'pem' ? '.pem' : '.crt';
+    var cext = fmt === 'cer-der' ? '.pem' : ext, o = [];
+    if (kinds.indexOf('pfx') >= 0) o.push(base + '.pfx');
+    if (kinds.indexOf('cert') >= 0) o.push(base + ext);
+    if (kinds.indexOf('chain') >= 0) o.push(base + '-chain' + cext);
+    if (kinds.indexOf('fullchain') >= 0) o.push(base + '-fullchain' + cext);
+    if (kinds.indexOf('key') >= 0) o.push(base + '.key');
+    if (kinds.indexOf('csr') >= 0) o.push(base + '.csr');
+    return o;
+  }
+  function syncOuts() {
+    var k = checkedOuts();
+    $('#pfx-opts').hidden = k.indexOf('pfx') < 0;
+    $('#key-warn').hidden = k.indexOf('key') < 0;
+    $('#certfmt-wrap').hidden = !(k.indexOf('cert') >= 0 || k.indexOf('chain') >= 0 || k.indexOf('fullchain') >= 0);
+    var first = ($('#domains').value.trim().split(/[\s,;]+/)[0]) || '';
+    var names = outNames(k, $('#certfmt').value, outBase($('#filename').value, first));
+    $('#out-preview').textContent = names.length ? 'Im Zielordner entstehen: ' + names.join(', ') : 'Keine Datei ausgewählt.';
+  }
+  $$('input[name="out"]').forEach(function (c) { c.addEventListener('change', syncOuts); });
+  ['#certfmt', '#filename', '#domains'].forEach(function (s) { $(s).addEventListener('input', syncOuts); $(s).addEventListener('change', syncOuts); });
+  syncOuts();
+
+  function readIssueForm() {
+    var domains = $('#domains').value.trim();
+    var self = $('input[name="method"]:checked').value === 'selfsigned';
+    if (!domains) throw new Error(self ? 'Bitte mindestens einen Namen oder eine IP-Adresse eintragen.' : 'Bitte mindestens eine Domain eintragen.');
+    if (!self && /(^|[\s,;])\*\./.test(domains)) throw new Error('Wildcard-Domains (*.…) gehen nur im Tab „Wildcard / DNS (manuell)“, weil sie einen DNS-Eintrag brauchen.');
+    var req = {
+      domains: domains,
+      method: $('input[name="method"]:checked').value,
+      webroot: $('#webroot').value,
+      targetDir: $('#target').value.trim(),
+      fileName: $('#filename').value.trim(),
+      outputs: checkedOuts(),
+      certFormat: $('#certfmt').value,
+      password: $('#pfxpw').value,
+      server: $('#server').value,
+      customUrl: $('#customurl').value.trim(),
+      email: $('#email').value.trim(),
+      keyBits: +$('#bits').value,
+      pfxFormat: $('#fmt').value,
+      autoRenew: $('#auto').checked && !$('#auto').disabled,
+      taskTime: $('#tasktime').value || '03:00',
+      runAs: $('#runas').value,
+      user: $('#user').value.trim(),
+      userPassword: $('#userpw').value,
+      taskName: $('#taskname').value.trim(),
+      firewall: $('#firewall').checked && INFO.windows && !self,
+      validDays: +$('#validdays').value,
+      replace: false
+    };
+    if (self) { req.server = 'prod'; req.email = ''; req.outputs = req.outputs.filter(function (k) { return k !== 'chain'; }); }
+    if (req.method === 'webroot' && !req.webroot.trim()) throw new Error('Bitte den Webordner angeben (z. B. C:\\inetpub\\wwwroot).');
+    if (!req.targetDir) throw new Error('Bitte den Zielordner für die Dateien angeben.');
+    if (!req.outputs.length) throw new Error('Bitte mindestens eine Datei auswählen, die im Zielordner liegen soll.');
+    if (req.outputs.indexOf('pfx') >= 0 && !req.password) throw new Error('Bitte ein Passwort für die PFX-Datei vergeben (oder „Zufällig“ wählen).');
+    if (req.outputs.indexOf('pfx') < 0) req.password = '';
+    if (!self && req.server === 'custom' && !req.customUrl) throw new Error('Bitte die Adresse des ACME-Servers angeben.');
+    if (!self && !$('#tos').checked) throw new Error('Bitte die Nutzungsbedingungen des Anbieters akzeptieren.');
+    return req;
+  }
+
+  function lockIssue(on) {
+    issuing = on;
+    $$('#issue-form input, #issue-form textarea, #issue-form select, #issue-form button').forEach(function (e) { e.disabled = on; });
+    if (!on) applyEnv();
+  }
+
+  var lastReq = null;
+  $('#form-issue').addEventListener('submit', function (e) { e.preventDefault(); startIssue(false); });
+
+  async function startIssue(replace) {
+    if (issuing) return;
+    var err = $('#err-issue'), ex = $('#exists-issue'); hideEl(err); hideEl(ex);
+    var req;
+    try { req = replace && lastReq ? lastReq : readIssueForm(); } catch (x) { showErr(err, x); err.scrollIntoView({ block: 'nearest' }); return; }
+    req.replace = !!replace; lastReq = req;
+    $('#prog-issue').innerHTML = '';
+    lockIssue(true);
+    try {
+      var r = await api('POST', '/api/profiles', req);
+      var v = await runJob(r.jobId, $('#prog-issue'));
+      if (v.state === 'ok') { lockIssue(false); renderDone(v.result, req); return; }
+      showErr(err, { message: v.message, detail: v.detail });
+    } catch (x) {
+      if (x.status === 409 && x.data && x.data.exists) {
+        ex.hidden = false;
+        ex.innerHTML = '<p><b>Für diese Domain gibt es schon eine Einrichtung.</b></p><p>Wenn Sie fortfahren, wird die bisherige Einrichtung samt Aufgabe und Firewall-Regel ersetzt. Gleichnamige Dateien im Zielordner werden beim Ausstellen überschrieben.</p><div class="actions"><button type="button" class="btn primary" id="do-replace">Ersetzen</button><button type="button" class="btn" id="no-replace">Abbrechen</button></div>';
+        $('#do-replace').addEventListener('click', function () { startIssue(true); });
+        $('#no-replace').addEventListener('click', function () { hideEl(ex); });
+      } else if (!ended) showErr(err, x);
+    }
+    lockIssue(false);
+  }
+
+  function sealSVG() {
+    return '<svg class="seal stamp" viewBox="0 0 120 120" role="img" aria-label="Zertifikat ausgestellt" fill="none" stroke="currentColor">' +
+      '<path d="M60 4 108 32v56L60 116 12 88V32z" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M60 15 98 37v46L60 105 22 83V37z" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<path d="M43 61l12 12 23-26" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  function urkundeHTML(c, withNames) {
+    var names = (c.dnsNames && c.dnsNames.length) ? c.dnsNames : [c.subject];
+    var days = Math.floor((new Date(c.notAfter) - new Date()) / 86400000);
+    return sealSVG() +
+      '<p class="names">' + names.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') + '</p>' +
+      '<dl><dt>Gültig ab</dt><dd>' + esc(fmtDate(c.notBefore)) + '</dd>' +
+      '<dt>Gültig bis</dt><dd>' + esc(fmtDate(c.notAfter)) + ' (noch ' + days + ' Tage)</dd>' +
+      '<dt>Aussteller</dt><dd>' + esc(c.issuer) + '</dd>' +
+      '<dt>Fingerabdruck</dt><dd class="fp">' + esc(c.fingerprint) + '</dd></dl>';
+  }
+
+  // Art der Datei anhand der Namensregel (Name -> Dateiart) für die Anzeige
+  function fileKindLabel(name, req) {
+    var base = outBase(req.fileName, String(req.domains).trim().split(/[\s,;]+/)[0]);
+    var kinds = req.outputs || ['pfx'], names = outNames(kinds, req.certFormat, base);
+    var order = ['pfx', 'cert', 'chain', 'fullchain', 'key', 'csr'].filter(function (k) { return kinds.indexOf(k) >= 0; });
+    var i = names.indexOf(name);
+    return i >= 0 ? OUT_LABEL[order[i]] : '';
+  }
+  function renderDone(res, req) {
+    $('#issue-form').hidden = true; $('#issue-done').hidden = false;
+    var c = res && res.cert;
+    var hasPfx = (req.outputs || ['pfx']).indexOf('pfx') >= 0;
+    $('#done-lead').textContent = hasPfx
+      ? 'Die Dateien liegen im Zielordner. Die PFX-Datei importieren Sie auf dem Zielsystem (bei IIS: Serverzertifikate, „Importieren“). Das Passwort kennen nur Sie.'
+      : 'Die Dateien liegen im Zielordner. Kopieren Sie sie dorthin, wo Ihr Server oder Ihr Gerät sie erwartet.';
+    var self = req.method === 'selfsigned';
+    $('#done-staging').hidden = self || req.server !== 'staging';
+    $('#done-self').hidden = !self;
+    if (c) $('#done-urkunde').innerHTML = urkundeHTML(c);
+    var items = [];
+    var filesHTML = '';
+    if (res && res.files && res.files.length) {
+      filesHTML = '<p><b>Dateien im Zielordner</b> (' + esc(res.target || '') + ')</p><ul class="files">' + res.files.map(function (f) {
+        var name = String(f).split(/[\\/]/).pop();
+        return '<li><code>' + esc(name) + '</code><span class="kind">' + esc(fileKindLabel(name, req)) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    items.push(self ? 'Selbstsigniertes Zertifikat (keine Bestätigung durch einen Anbieter nötig)' : req.method === 'webroot' ? 'Bestätigung über den Webserver (Ordner: ' + req.webroot.trim().split(/\r?\n/).filter(Boolean).join(', ') + ')' : 'Bestätigung durch dieses Programm über Port 80');
+    if (req.autoRenew) items.push('Tägliche Prüfung um ' + req.taskTime + ' Uhr in der Aufgabenplanung. ' + (self ? 'Erneuert wird 30 Tage vor Ablauf (bei kurzer Gültigkeit, sobald nur noch ein Drittel übrig ist).' : 'Erneuert wird erst, wenn weniger als ein Drittel der Laufzeit übrig ist.'));
+    else items.push('Keine automatische Erneuerung eingerichtet. Zum Erneuern in der Übersicht „Jetzt erneuern“ wählen.');
+    $('#done-info').innerHTML = filesHTML + '<p style="margin-top:18px"><b>Eingerichtet:</b></p><ul class="plain">' + items.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
+    $('#done-h').focus();
+  }
+  $('#issue-again').addEventListener('click', function () {
+    $('#issue-done').hidden = true; $('#issue-form').hidden = false;
+    $('#form-issue').reset(); syncOuts(); $('#prog-issue').innerHTML = ''; hideEl($('#err-issue')); hideEl($('#exists-issue'));
+    $('#auto-wrap').hidden = !$('#auto').checked; $('#user-wrap').hidden = true; $('#custom-wrap').hidden = true;
+    ['#port-result', '#target-result'].forEach(function (s) { $(s).hidden = true; });
+    lastReq = null; syncMethod(); syncUnc(); applyEnv();
+    $('#issue-form h2').focus();
+  });
+  $('#to-overview').addEventListener('click', function () { selectTab('overview'); $('#tab-overview').focus(); });
+
+  /* ---------- Übersicht ---------- */
+  var RESULT_TEXT = { 'ausgestellt': 'Zertifikat ausgestellt', 'erneuert': 'Zertifikat erneuert', 'nicht-faellig': 'Geprüft, noch nicht fällig', 'fehler': 'Fehlgeschlagen' };
+  var profiles = [];
+
+  async function loadOverview(keepMsg) {
+    if (!keepMsg) $('#ov-msg').innerHTML = '';
+    try {
+      var r = await api('GET', '/api/profiles');
+      profiles = r.profiles || [];
+      renderCards();
+    } catch (e) { if (!ended) $('#ov-msg').innerHTML = '<div class="notice err">' + esc(e.message) + '</div>'; }
+  }
+  $('#ov-refresh').addEventListener('click', function () { loadOverview(); });
+
+  function renderCards() {
+    var box = $('#cards');
+    if (!profiles.length) {
+      box.innerHTML = '<div class="empty"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 2 43 13v22L24 46 5 35V13z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".45"/><path d="M24 12 34 18v12L24 36 14 30V18z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".45"/></svg><p>Noch kein Zertifikat eingerichtet.</p><button type="button" class="btn primary" id="empty-go">Erstes Zertifikat einrichten</button></div>';
+      $('#empty-go').addEventListener('click', function () { selectTab('issue'); $('#tab-issue').focus(); });
+      return;
+    }
+    // Karten behalten, solange ein Vorgang läuft
+    var open = {};
+    $$('.card', box).forEach(function (c) { if (c.dataset.busy === '1') open[c.dataset.id] = c; });
+    box.innerHTML = profiles.map(cardHTML).join('');
+    Object.keys(open).forEach(function (id) { var n = $('.card[data-id="' + id + '"]', box); if (n) { n.replaceWith(open[id]); } });
+  }
+
+  function cardHTML(p) {
+    if (!p.domains) return '<article class="card" data-id="' + esc(p.id) + '" data-health="bad"><header><h3>' + esc(p.id) + '</h3><span class="chip bad">Beschädigt</span></header><p>' + esc(p.lastMessage) + '</p><div class="actions"><button type="button" class="btn small danger" data-act="delete">Löschen</button></div></article>';
+    var chip, health = 'ok';
+    if (!p.cert) { chip = '<span class="chip bad">Kein Zertifikat</span>'; health = 'bad'; }
+    else if (p.daysLeft <= 0) { chip = '<span class="chip bad">Abgelaufen</span>'; health = 'bad'; }
+    else if (p.daysLeft <= 14) { chip = '<span class="chip warn">Noch ' + p.daysLeft + ' Tage</span>'; health = 'warn'; }
+    else chip = '<span class="chip ok">Noch ' + p.daysLeft + ' Tage</span>';
+    if (p.lastResult === 'fehler') health = 'bad';
+    var staging = p.serverKind === 'staging' ? ' <span class="chip warn" title="Nicht vertrauenswürdig">Testzertifikat</span>' : '';
+    if (p.method === 'selfsigned') staging = ' <span class="chip warn" title="Clients vertrauen ihm erst nach dem Import">Selbstsigniert</span>';
+    var f = [];
+    if (p.cert) f.push(['Gültig bis', esc(fmtDate(p.cert.notAfter))]);
+    f.push(['Zielordner', esc(p.targetDir || '')]);
+    if (p.files && p.files.length) {
+      f.push(['Dateien', '<ul class="files">' + p.files.map(function (x) {
+        return '<li><code>' + esc(x.name) + '</code><span class="kind">' + esc(x.label) + '</span> <span class="st ' + (x.found ? 'ok' : 'no') + '">' + (x.found ? 'vorhanden' : 'nicht gefunden') + '</span></li>';
+      }).join('') + '</ul>']);
+    }
+    f.push(p.method === 'selfsigned' ? ['Art', 'Selbstsigniert, nicht öffentlich vertrauenswürdig'] : ['Bestätigung', p.method === 'webroot' ? 'Webserver, Ordner: ' + esc((p.webroot || []).join(', ')) : 'Dieses Programm über Port 80']);
+    if (p.task.enabled) {
+      f.push(['Erneuerung', 'Täglich um ' + esc(p.task.time) + ' Uhr, Konto ' + esc(p.task.runAs) + ' <span class="st ' + (p.task.exists ? 'ok' : 'no') + '">' + (p.task.exists ? 'Aufgabe vorhanden' : 'Aufgabe fehlt in der Aufgabenplanung') + '</span>']);
+    } else f.push(['Erneuerung', 'Nicht automatisch. Bitte regelmäßig „Jetzt erneuern“ wählen.']);
+    if (p.lastRun) f.push(['Letzter Lauf', esc(fmtDateTime(p.lastRun)) + ' – <span class="st ' + (p.lastResult === 'fehler' ? 'no' : 'ok') + '">' + esc(RESULT_TEXT[p.lastResult] || p.lastResult || '') + '</span>' + (p.lastMessage ? '<br><small>' + esc(p.lastMessage) + '</small>' : '')]);
+    return '<article class="card" data-id="' + esc(p.id) + '" data-health="' + health + '">' +
+      '<header><h3>' + esc((p.cert && p.cert.dnsNames && p.cert.dnsNames.length ? p.cert.dnsNames : p.domains).join(', ')) + '</h3><span>' + chip + staging + '</span></header>' +
+      '<dl class="facts">' + f.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join('') + '</dl>' +
+      '<div class="actions">' +
+      '<button type="button" class="btn small primary" data-act="renew">Jetzt prüfen und erneuern</button>' +
+      (p.task.enabled ? '<button type="button" class="btn small" data-act="tasktest">Aufgabe testen</button>' : '') +
+      '<button type="button" class="btn small" data-act="log">Protokoll</button>' +
+      '<details class="menu"><summary class="btn small">Mehr</summary><div class="pop"><button type="button" class="btn small" data-act="force">Neu ausstellen (erzwingen)</button><button type="button" class="btn small danger" data-act="delete">Einrichtung löschen …</button></div></details>' +
+      '</div><div class="jobbox" hidden><ul class="tasks" aria-live="polite"></ul><div class="jobmsg"></div></div><pre class="logbox" hidden></pre></article>';
+  }
+
+  $('#cards').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]');
+    if (!b) return;
+    var card = b.closest('.card'), id = card.dataset.id, act = b.dataset.act;
+    var menu = b.closest('details.menu'); if (menu) menu.open = false;
+    if (act === 'renew') return doJob(card, '/api/profiles/' + encodeURIComponent(id) + '/renew', { force: false }, b);
+    if (act === 'tasktest') return doJob(card, '/api/profiles/' + encodeURIComponent(id) + '/task-test', {}, b);
+    if (act === 'force') return forceRenew(card, id, b);
+    if (act === 'log') return toggleLog(card, id);
+    if (act === 'delete') return deleteProfile(card, id);
+  });
+  document.addEventListener('click', function (e) { $$('details.menu[open]').forEach(function (m) { if (!m.contains(e.target)) m.open = false; }); });
+
+  async function doJob(card, url, body, btn) {
+    if (card.dataset.busy === '1') return;
+    card.dataset.busy = '1'; running++;
+    var box = $('.jobbox', card), ul = $('.tasks', box), msg = $('.jobmsg', box);
+    box.hidden = false; msg.innerHTML = ''; ul.innerHTML = '';
+    $$('.actions button, .actions summary', card).forEach(function (x) { x.disabled = true; });
+    var ok = false;
+    try {
+      var r = await api('POST', url, body);
+      var v = await runJob(r.jobId, ul);
+      if (v.state === 'ok') {
+        ok = true;
+        var text = (v.result && v.result.message) || 'Fertig.';
+        msg.innerHTML = '<div class="notice ' + (v.result && v.result.result === 'nicht-faellig' ? 'info' : 'ok') + '" style="margin-top:10px"><p><b>' + esc(text) + '</b></p></div>';
+      } else {
+        var d = document.createElement('div'); d.className = 'notice err'; d.style.marginTop = '10px'; msg.innerHTML = ''; msg.appendChild(d);
+        showErr(d, { message: v.message, detail: v.detail }, /Port 80|nicht auf Port 80|erreichen/.test(v.message || '') ? '' : '');
+      }
+    } catch (x) {
+      if (!ended) msg.innerHTML = '<div class="notice err" style="margin-top:10px"><p><b>' + esc(x.message) + '</b></p></div>';
+    }
+    delete card.dataset.busy; running--;
+    $$('.actions button, .actions summary', card).forEach(function (x) { x.disabled = false; });
+    if (ok) { var keep = card; setTimeout(function () { refreshCardKeepJob(keep); }, 200); }
+  }
+  // Nach einem Vorgang die Zahlen der Karte erneuern, aber die Fortschrittsanzeige stehen lassen.
+  async function refreshCardKeepJob(card) {
+    try {
+      var r = await api('GET', '/api/profiles');
+      profiles = r.profiles || [];
+      var p = profiles.filter(function (x) { return x.id === card.dataset.id; })[0];
+      if (!p) return;
+      var tmp = document.createElement('div'); tmp.innerHTML = cardHTML(p);
+      var fresh = tmp.firstElementChild;
+      card.dataset.health = fresh.dataset.health;
+      $('header', card).innerHTML = $('header', fresh).innerHTML;
+      $('.facts', card).innerHTML = $('.facts', fresh).innerHTML;
+    } catch (e) { /* Anzeige bleibt */ }
+  }
+
+  async function forceRenew(card, id, btn) {
+    var fp = profiles.filter(function (x) { return x.id === id; })[0];
+    var fself = !!(fp && fp.method === 'selfsigned');
+    var ok = await confirmBox('Neu ausstellen erzwingen?', fself
+      ? '<p>Das Programm erstellt jetzt auf jeden Fall ein neues Zertifikat mit neuem Schlüssel und überschreibt die Dateien im Zielordner. Geräte, die dem alten Zertifikat vertrauen, müssen dem neuen erneut vertrauen.</p>'
+      : '<p>Das Programm holt jetzt auf jeden Fall ein neues Zertifikat und überschreibt die Dateien im Zielordner. Let’s Encrypt begrenzt, wie oft das pro Domain und Woche geht.</p>', 'Neu ausstellen');
+    if (ok) doJob(card, '/api/profiles/' + encodeURIComponent(id) + '/renew', { force: true }, btn);
+  }
+
+  async function toggleLog(card, id) {
+    var pre = $('.logbox', card);
+    if (!pre.hidden) { pre.hidden = true; return; }
+    try {
+      var r = await api('GET', '/api/profiles/' + encodeURIComponent(id) + '/log');
+      pre.textContent = (r.lines && r.lines.length) ? r.lines.join('\n') : 'Noch keine Einträge.';
+      pre.hidden = false; pre.scrollTop = pre.scrollHeight;
+    } catch (e) { if (!ended) { pre.textContent = e.message; pre.hidden = false; } }
+  }
+
+  async function deleteProfile(card, id) {
+    var p = profiles.filter(function (x) { return x.id === id; })[0];
+    var parts = ['<p>Die Einrichtung für <b>' + esc(p && p.domains ? p.domains.join(', ') : id) + '</b> wird entfernt:</p><ul class="plain">'];
+    if (p && p.task && p.task.enabled) parts.push('<li>Die Aufgabe in der Aufgabenplanung</li>');
+    parts.push((p && p.method === 'selfsigned' ? '' : '<li>Die Firewall-Regel für Port 80 (falls angelegt)</li>') + '<li>Schlüssel' + (p && p.method === 'selfsigned' ? '' : ', Konto') + ' und gespeichertes Passwort im Arbeitsordner</li></ul><p style="margin-top:10px">Die Dateien im Zielordner bleiben erhalten. Ein bereits importiertes Zertifikat läuft ganz normal bis zum Ablaufdatum weiter.</p>');
+    var ok = await confirmBox('Einrichtung löschen?', parts.join(''), 'Löschen', true);
+    if (!ok) return;
+    try {
+      var r = await api('DELETE', '/api/profiles/' + encodeURIComponent(id), {});
+      $('#ov-msg').innerHTML = '<div class="notice ok"><p><b>Die Einrichtung wurde gelöscht.</b> Die Dateien im Zielordner sind unverändert.</p>' + ((r.notes && r.notes.length) ? '<ul>' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+      loadOverview(true);
+    } catch (e) { if (!ended) $('#ov-msg').innerHTML = '<div class="notice err"><p><b>' + esc(e.message) + '</b></p></div>'; }
+  }
+
+  /* ---------- Umgebung ---------- */
+  function applyEnv() {
+    var auto = $('#auto');
+    if (INFO.windows && !INFO.elevated) {
+      auto.checked = false; auto.disabled = true; $('#auto-wrap').hidden = true; $('#firewall').disabled = true; $('#firewall').checked = false;
+    }
+    if (!INFO.windows) { $('#fw-wrap').hidden = true; }
+    syncUnc();
+  }
+
+  async function init() {
+    try {
+      INFO = await api('GET', '/api/info');
+    } catch (e) { return; }
+    $('#foot-name').textContent = INFO.name || 'Certbumblebee';
+    $('#foot-version').textContent = 'Version ' + (INFO.version || '');
+    $('#foot-data').textContent = 'Daten: ' + (INFO.dataDir || '');
+    if (INFO.window) $('#quit').hidden = true; // im Programmfenster beendet das Schließen des Fensters das Programm
+    if (INFO.windows && !INFO.elevated) {
+      banner('warn', '<p><b>Das Programm läuft ohne Administratorrechte.</b></p><p>Automatische Erneuerung und Firewall-Regel brauchen sie. Bitte Certbumblebee beenden und neu starten; Windows fragt dann nach der Erlaubnis.</p>');
+    }
+    if (!LE) {
+      var why = window.LE_ERROR || 'Der Browser stellt keine Kryptografie-Funktionen bereit.';
+      $('#tab-wild').disabled = true; $('#tab-convert').disabled = true;
+      banner('err', '<p><b>Wildcard und PFX-Umwandlung sind nicht verfügbar:</b> ' + esc(why) + '</p>');
+    }
+    applyEnv(); syncMethod();
+    loadOverview();
+  }
+  // Im Programmfenster öffnen Links (Nutzungsbedingungen) im Standardbrowser statt in einem zweiten Fenster.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a[target="_blank"]') : null;
+    if (!a || !INFO.window) return;
+    e.preventDefault();
+    api('POST', '/api/open-link', { url: a.href }).catch(function () { /* ignorieren */ });
+  });
+  $('#quit').addEventListener('click', async function () {
+    var ok = await confirmBox('Certbumblebee beenden?', '<p>Die Oberfläche wird geschlossen. Eingerichtete Aufgaben laufen weiter, auch wenn dieses Programm nicht geöffnet ist.</p>', 'Beenden');
+    if (!ok) return;
+    try { await api('POST', '/api/quit', {}); } catch (e) { /* wird beendet */ }
+    ended = true;
+    document.body.innerHTML = '<div class="app"><div class="sheet"><h2>Certbumblebee wurde beendet</h2><p class="lead">Sie können dieses Fenster schließen. Zum erneuten Öffnen die Exe starten.</p></div></div>';
+  });
+
+  /* ---------- Wildcard / DNS (manuell) ---------- */
+  if (LE) (function () {
+    var SERVERS = { prod: 'https://acme-v02.api.letsencrypt.org/directory', staging: 'https://acme-staging-v02.api.letsencrypt.org/directory' };
+    var S = null;
+    function resetState() { S = { step: 1, client: null, order: null, infos: [], form: null, keyPromise: null, result: null, guard: false }; }
+    resetState();
+    window.addEventListener('beforeunload', function (e) { if (S.guard) { e.preventDefault(); e.returnValue = ''; } });
+    // Im Programmfenster fragt das Programm selbst nach, bevor es mit einem noch nicht gespeicherten Wildcard-Schlüssel schließt.
+    var guardSent = false;
+    setInterval(function () {
+      if (!INFO.window || ended) return;
+      var g = !!(S && S.guard);
+      if (g !== guardSent) { guardSent = g; api('POST', '/api/guard', { on: g }).catch(function () { guardSent = !g; }); }
+    }, 1000);
+
+    function showStep(n) {
+      S.step = n;
+      $$('#view-wild .panel').forEach(function (p) { p.hidden = p.dataset.step !== String(n); });
+      $$('#wrail li').forEach(function (li) {
+        var i = +li.dataset.n;
+        li.dataset.state = i < n ? 'done' : (i === n ? 'current' : 'todo');
+        if (i === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+      });
+      var h = $('#view-wild .panel[data-step="' + n + '"] h2'); if (h) h.focus({ preventScroll: false });
+    }
+
+    $('#wserver').addEventListener('change', function () { $('#wcustom-wrap').hidden = this.value !== 'custom'; });
+    $('#wpw-gen').addEventListener('click', function () { var i = $('#wpfxpw'); i.value = genPassword(20); i.type = 'text'; $('#wpw-show').textContent = 'Verbergen'; $('#wpw-show').setAttribute('aria-pressed', 'true'); });
+    $('#wpw-show').addEventListener('click', function () { var i = $('#wpfxpw'), on = i.type === 'password'; i.type = on ? 'text' : 'password'; this.textContent = on ? 'Verbergen' : 'Anzeigen'; this.setAttribute('aria-pressed', on); });
+
+    function readForm() {
+      var f = {};
+      f.domains = LE.normalizeDomains($('#wdomains').value);
+      f.password = $('#wpfxpw').value;
+      if (!f.password) throw new Error('Bitte ein Passwort für die PFX-Datei vergeben (oder „Zufällig“ wählen).');
+      if (!/^[\x20-\x7e]+$/.test(f.password)) throw new Error('Das PFX-Passwort darf hier keine Umlaute oder Akzente enthalten.');
+      f.email = $('#wemail').value.trim();
+      if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) throw new Error('Die E-Mail-Adresse sieht nicht richtig aus.');
+      var srv = $('#wserver').value; f.server = srv;
+      f.directoryUrl = srv === 'custom' ? $('#wcustomurl').value.trim() : SERVERS[srv];
+      if (!/^https?:\/\//.test(f.directoryUrl)) throw new Error('Bitte die Adresse des ACME-Servers angeben (beginnt mit https://).');
+      f.bits = +$('#wbits').value; f.algorithm = $('#walg').value;
+      if (!$('#wtos').checked) throw new Error('Bitte die Nutzungsbedingungen des Anbieters akzeptieren.');
+      return f;
+    }
+
+    $('#wform').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var err = $('#werr1'); hideEl(err);
+      var f;
+      try { f = readForm(); } catch (x) { showErr(err, x); return; }
+      $('#wfs').disabled = true; $('#wgo1').disabled = true;
+      S.form = f;
+      var p = progress($('#wprog1'), [
+        { id: 'conn', label: 'Mit dem Zertifikatsanbieter verbinden' }, { id: 'acct', label: 'Konto anlegen' },
+        { id: 'order', label: 'Zertifikat beantragen' }, { id: 'authz', label: 'Bestätigungsdaten abrufen' }
+      ]);
+      try {
+        p.start('conn'); var client = new LE.AcmeClient({ directoryUrl: f.directoryUrl }); await client.init(); p.done('conn');
+        p.start('acct'); await client.createAccount(f.email); p.done('acct');
+        p.start('order'); var order = await client.newOrder(f.domains); p.done('order');
+        p.start('authz');
+        var infos = [];
+        for (var i = 0; i < order.authorizations.length; i++) infos.push(await client.challengeInfo(await client.getAuthorization(order.authorizations[i])));
+        infos.forEach(function (n) { if (n.status !== 'valid' && !n.dns) throw new Error('Für ' + n.domain + ' bietet der Anbieter keine Bestätigung per DNS an.'); });
+        p.done('authz');
+        S.client = client; S.order = order; S.infos = infos;
+        S.keyPromise = LE.generateKeyAndCsr(f.domains, f.bits);
+        S.keyPromise.catch(function () { /* wird in Schritt 3 gemeldet */ });
+        S.guard = true;
+        if (infos.every(function (n) { return n.status === 'valid'; })) { runIssue(true); } else { renderStep2(); showStep(2); }
+      } catch (x) {
+        p.failRunning();
+        var hint = /nicht erreichbar/.test(x.message) ? 'Falls Sie hinter einem Proxy oder einer Firewall arbeiten: Dieser Rechner muss https://acme-v02.api.letsencrypt.org erreichen dürfen.' : '';
+        if (x && x.type === 'urn:ietf:params:acme:error:rateLimited') hint = 'Bitte später erneut versuchen oder zum Üben die Testumgebung wählen (Erweiterte Einstellungen).';
+        showErr(err, x, hint);
+        $('#wfs').disabled = false; $('#wgo1').disabled = false;
+      }
+    });
+
+    function recordRow(k, v, extra) {
+      return '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span><button type="button" class="btn small copy" data-copy="' + esc(v) + '">Kopieren</button>' + (extra || '') + '</div>';
+    }
+    function renderStep2() {
+      var box = $('#wrecords'), html = '';
+      var pending = S.infos.filter(function (n) { return n.status !== 'valid'; });
+      var already = S.infos.filter(function (n) { return n.status === 'valid'; });
+      $('#wlead2').textContent = 'Legen Sie bei dem Anbieter, der Ihre DNS-Einträge verwaltet, die folgenden TXT-Einträge an. Danach auf „Bestätigung starten“ klicken. Es kann ein bis zwei Minuten dauern, bis ein neuer Eintrag im Internet sichtbar ist.';
+      var groups = {}, order = [];
+      pending.forEach(function (n) { var g = groups[n.dns.name]; if (!g) { g = groups[n.dns.name] = { name: n.dns.name, values: [], domains: [] }; order.push(g); } if (g.values.indexOf(n.dns.value) < 0) g.values.push(n.dns.value); g.domains.push((n.wildcard ? '*.' : '') + n.domain); });
+      order.forEach(function (g, gi) {
+        html += '<div class="record"><header>TXT-Eintrag für ' + esc(g.domains.join(' und ')) + '</header>' +
+          recordRow('Name', g.name) +
+          g.values.map(function (v, i) { return recordRow(g.values.length > 1 ? 'Wert ' + (i + 1) : 'Wert', v, '<span class="stl" data-val="' + esc(v) + '"></span>'); }).join('') +
+          '<div class="row"><span class="k">Typ</span><span class="v">TXT</span><span></span></div>' +
+          '<div class="row"><span class="k"></span><span><button type="button" class="btn small check-dns" data-g="' + gi + '">Eintrag prüfen</button></span><span></span></div></div>';
+      });
+      if (order.some(function (g) { return g.values.length > 1; })) html += '<p class="hint" style="margin:-6px 0 18px">Bei mehreren Werten unter demselben Namen legen Sie für jeden Wert einen eigenen TXT-Eintrag an. Den ersten nicht überschreiben.</p>';
+      box.innerHTML = html;
+      $$('.check-dns', box).forEach(function (b) { b.addEventListener('click', function () { checkDns(order[+b.dataset.g], b); }); });
+      if (already.length) box.innerHTML = '<p class="done-line">Bereits bestätigt: ' + esc(already.map(function (n) { return (n.wildcard ? '*.' : '') + n.domain; }).join(', ')) + '</p>' + box.innerHTML;
+      $$('.copy', box).forEach(function (b) { b.addEventListener('click', function () { copyText(b.dataset.copy, b); }); });
+    }
+    async function checkDns(g, btn) {
+      btn.disabled = true; var t = btn.textContent; btn.textContent = 'Prüfe …';
+      var rec = btn.closest('.record');
+      try {
+        var found = await LE.lookupTxt(g.name);
+        $$('.stl', rec).forEach(function (s) { var ok = found.indexOf(s.dataset.val) >= 0; s.className = 'stl ' + (ok ? 'ok' : 'no'); s.textContent = ok ? 'Wert ist im Internet sichtbar.' : 'Noch nicht sichtbar. Ein paar Minuten warten und erneut prüfen.'; });
+      } catch (x) {
+        $$('.stl', rec).forEach(function (s) { s.className = 'stl no'; s.textContent = 'Die Prüfung ist von hier aus nicht möglich. Sie können trotzdem mit der Bestätigung fortfahren.'; });
+      }
+      btn.disabled = false; btn.textContent = t;
+    }
+
+    $('#wgo2').addEventListener('click', function () { runIssue(false); });
+    $('#wback2').addEventListener('click', cancelRun);
+    $('#wrestart3').addEventListener('click', cancelRun);
+    function cancelRun() {
+      if (S.client) S.client.cancelled = true;
+      var form = S.form; resetState(); S.form = form;
+      $('#wfs').disabled = false; $('#wgo1').disabled = false; hideEl($('#werr1')); $('#wprog1').innerHTML = '';
+      showStep(1);
+    }
+
+    async function runIssue(skipped) {
+      var f = S.form, client = S.client;
+      showStep(3); hideEl($('#werr3')); $('#wact3').hidden = true;
+      var pending = S.infos.filter(function (n) { return n.status !== 'valid'; });
+      var tasks = pending.map(function (n) { return { id: 'v:' + n.authzUrl, label: 'Domain bestätigen: ' + (n.wildcard ? '*.' : '') + n.domain }; });
+      tasks.push({ id: 'issue', label: 'Zertifikat ausstellen lassen' }, { id: 'pfx', label: 'PFX-Datei erstellen' });
+      var p = progress($('#wprog3'), tasks);
+      var old = $('#wskipnote'); if (old) old.remove();
+      if (skipped) $('#wprog3').insertAdjacentHTML('beforebegin', '<p class="hint" id="wskipnote">Der Anbieter hat alle Domains bereits früher bestätigt bekommen. Der Schritt entfällt.</p>');
+      try {
+        pending.forEach(function (n) { p.start('v:' + n.authzUrl); });
+        for (var i = 0; i < pending.length; i++) await client.respondToChallenge(pending[i].dns.url);
+        await Promise.all(pending.map(function (n) {
+          return client.waitForAuthorization(n.authzUrl).then(function () { p.done('v:' + n.authzUrl); }, function (x) { p.fail('v:' + n.authzUrl); client.cancelled = true; throw x; });
+        }));
+        p.start('issue', 'Schlüssel wird vorbereitet …');
+        var k = await S.keyPromise;
+        p.start('issue');
+        var pem = await client.finalize(S.order, k.csrDer);
+        p.done('issue');
+        p.start('pfx');
+        var pfx = LE.buildPfx({ keyPem: k.keyPem, certsPem: pem, password: f.password, algorithm: f.algorithm, friendlyName: f.domains[0] });
+        p.done('pfx');
+        var certs = LE.parseCertBundle(pem);
+        S.result = { pfx: pfx.der, fullchain: pem, keyPem: k.keyPem, csrPem: LE.derToPem(k.csrDer, 'CERTIFICATE REQUEST'), certs: certs, info: LE.describeCert(certs[0]), downloaded: false };
+        renderStep4(); showStep(4);
+      } catch (x) {
+        p.failRunning();
+        var hint = '';
+        if (/nicht bestätigt|unauthorized|dns|connection/i.test(x.message)) hint = 'Prüfen Sie den Eintrag auf Tippfehler und warten Sie ggf. länger, bis er überall sichtbar ist. Dann „Von vorn beginnen“. Nach mehreren Fehlversuchen sperrt der Anbieter eine Domain kurz; zum Üben hilft die Testumgebung.';
+        if (x && x.type === 'urn:ietf:params:acme:error:rateLimited') hint = 'Bitte später erneut versuchen.';
+        showErr($('#werr3'), x, hint);
+        $('#wact3').hidden = false;
+      }
+    }
+
+    function fileBase() { return S.form.domains[0].replace(/^\*\./, '_.'); }
+    function renderStep4() {
+      var r = S.result, i = r.info, f = S.form;
+      $('#wstagingwarn').hidden = !(f.server === 'staging' || /\(staging\)|fake le/i.test(i.issuer));
+      $('#wurkunde').innerHTML = urkundeHTML({ dnsNames: i.names, subject: i.commonName, notBefore: i.notBefore, notAfter: i.notAfter, issuer: i.issuer, fingerprint: i.fingerprint });
+      var pw = $('#wpwshow'); pw.textContent = '••••••••'; pw.dataset.shown = '';
+    }
+    $('#wpw4-show').addEventListener('click', function () {
+      var pw = $('#wpwshow'), shown = pw.dataset.shown === '1';
+      pw.textContent = shown ? '••••••••' : S.form.password; pw.dataset.shown = shown ? '' : '1'; this.textContent = shown ? 'Anzeigen' : 'Verbergen';
+    });
+    $('#wpw4-copy').addEventListener('click', function () { copyText(S.form.password, this); });
+    $('#wdl-pfx').addEventListener('click', function () { download(fileBase() + '.pfx', S.result.pfx, 'application/x-pkcs12'); S.result.downloaded = true; S.guard = false; });
+    function dl(name, data, type) { download(name, data, type || 'application/x-pem-file'); }
+    $('#wdl-full').addEventListener('click', function () { dl(fileBase() + '-fullchain.pem', S.result.fullchain); });
+    $('#wdl-cert').addEventListener('click', function () { dl(fileBase() + '.pem', S.result.certs[0]); });
+    $('#wdl-crt').addEventListener('click', function () { dl(fileBase() + '.crt', S.result.certs[0]); });
+    $('#wdl-cer').addEventListener('click', function () { dl(fileBase() + '.cer', S.result.certs[0]); });
+    $('#wdl-cerder').addEventListener('click', function () { dl(fileBase() + '.cer', LE.pemToDer(S.result.certs[0]), 'application/pkix-cert'); });
+    $('#wdl-chain').addEventListener('click', function () {
+      var c = S.result.certs.slice(1).join(''), b = this;
+      if (!c) { var t = b.textContent; b.textContent = 'Keine Zwischenzertifikate vorhanden'; setTimeout(function () { b.textContent = t; }, 2200); return; }
+      dl(fileBase() + '-chain.pem', c);
+    });
+    $('#wdl-key').addEventListener('click', function () { dl(fileBase() + '.key', S.result.keyPem); });
+    $('#wdl-csr').addEventListener('click', function () { dl(fileBase() + '.csr', S.result.csrPem, 'application/pkcs10'); });
+    $('#wagain').addEventListener('click', async function () {
+      if (S.result && !S.result.downloaded) {
+        var ok = await confirmBox('Neu beginnen?', '<p>Die PFX-Datei wurde noch nicht heruntergeladen. Der Schlüssel geht beim Neubeginnen verloren.</p>', 'Neu beginnen', true);
+        if (!ok) return;
+      }
+      resetState();
+      $('#wform').reset(); $('#wcustom-wrap').hidden = true; $('#wfs').disabled = false; $('#wgo1').disabled = false; $('#wprog1').innerHTML = '';
+      var sn = $('#wskipnote'); if (sn) sn.remove();
+      hideEl($('#werr1')); showStep(1);
+    });
+    showStep(1);
+  })();
+
+  /* ---------- PFX umwandeln ---------- */
+  if (LE) (function () {
+    $$('input[name="dir"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        var up = $('input[name="dir"]:checked').value === 'topfx';
+        $('#conv-topfx').hidden = !up; $('#conv-topem').hidden = up;
+      });
+    });
+    function readFileText(file) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result)); }; r.onerror = rej; r.readAsText(file); }); }
+    function readFileBytes(file) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(new Uint8Array(r.result)); }; r.onerror = rej; r.readAsArrayBuffer(file); }); }
+
+    async function takeFiles(files) {
+      var certs = $('#pem-certs'), key = $('#pem-key'), ignored = [];
+      for (var i = 0; i < files.length; i++) {
+        var txt = await readFileText(files[i]);
+        var hasKey = /-----BEGIN (RSA |EC |ENCRYPTED )?PRIVATE KEY-----/.test(txt);
+        var cs = LE.parseCertBundle(txt);
+        if (hasKey) { var m = txt.match(/-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----/); key.value = m[0] + '\n'; }
+        if (cs.length) { cs.forEach(function (c) { if (certs.value.indexOf(c.trim()) < 0) certs.value += (certs.value && !/\n$/.test(certs.value) ? '\n' : '') + c; }); }
+        if (!hasKey && !cs.length) ignored.push(files[i].name);
+      }
+      if (ignored.length) showErr($('#err-c1'), new Error('Nicht erkannt: ' + ignored.join(', ') + '. Erwartet werden PEM-Dateien mit „-----BEGIN …-----“.'));
+      else hideEl($('#err-c1'));
+      updateFound();
+    }
+    function updateFound() {
+      var ul = $('#found'), items = [];
+      var cs = LE.parseCertBundle($('#pem-certs').value);
+      if (cs.length) {
+        try { var d = LE.describeCert(cs[0]); items.push('<li><span class="y">Zertifikat erkannt:</span> ' + esc((d.names.length ? d.names : [d.commonName]).join(', ')) + ', gültig bis ' + esc(fmtDate(d.notAfter)) + (cs.length > 1 ? ' (+ ' + (cs.length - 1) + ' weitere in der Kette)' : '') + '</li>'); } catch (e) { items.push('<li class="n">Zertifikat nicht lesbar</li>'); }
+      } else items.push('<li class="n">Noch kein Zertifikat</li>');
+      var k = $('#pem-key').value;
+      items.push(/-----BEGIN (RSA |ENCRYPTED )?PRIVATE KEY-----/.test(k) ? '<li><span class="y">Privater Schlüssel erkannt</span>' + (/ENCRYPTED/.test(k) ? ' (verschlüsselt)' : '') + '</li>' : '<li class="n">Noch kein privater Schlüssel</li>');
+      ul.innerHTML = items.join('');
+    }
+    $('#pem-certs').addEventListener('input', updateFound);
+    $('#pem-key').addEventListener('input', updateFound);
+    $('#pick-pem').addEventListener('click', function () { $('#file-pem').click(); });
+    $('#file-pem').addEventListener('change', function () { var list = Array.prototype.slice.call(this.files); this.value = ''; takeFiles(list); });
+    var drop = $('#drop');
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { takeFiles(Array.prototype.slice.call(e.dataTransfer.files)); });
+    $('#pem-gen').addEventListener('click', function () { var i = $('#pem-pfxpw'); i.value = genPassword(20); i.type = 'text'; });
+    updateFound();
+
+    $('#make-pfx').addEventListener('click', function () {
+      var err = $('#err-c1'), ok = $('#ok-c1'); hideEl(err); hideEl(ok);
+      try {
+        var res = LE.buildPfx({ keyPem: $('#pem-key').value, keyPassword: $('#pem-keypw').value, certsPem: $('#pem-certs').value, password: $('#pem-pfxpw').value, algorithm: $('#pem-alg').value });
+        var d = LE.describeCert(res.leafPem);
+        var name = ((d.names[0] || d.commonName || 'zertifikat').replace(/^\*\./, '_.')) + '.pfx';
+        download(name, res.der, 'application/x-pkcs12');
+        ok.hidden = false;
+        ok.innerHTML = '<p><b>' + esc(name) + '</b> wurde erstellt (' + res.certCount + (res.certCount === 1 ? ' Zertifikat' : ' Zertifikate') + ' und Schlüssel). Das Passwort wird nirgends gespeichert.</p>';
+      } catch (x) { showErr(err, x); }
+    });
+
+    $('#open-pfx').addEventListener('click', async function () {
+      var err = $('#err-c2'), out = $('#pem-out'); hideEl(err); out.innerHTML = '';
+      var file = $('#file-pfx').files[0];
+      if (!file) { showErr(err, new Error('Bitte zuerst eine PFX- oder P12-Datei auswählen.')); return; }
+      try {
+        var r = LE.parsePfx(await readFileBytes(file), $('#pfx-pw').value);
+        var blocks = [];
+        if (r.leafPem) blocks.push({ title: 'Zertifikat (cert.pem)', name: 'cert.pem', text: r.leafPem });
+        if (r.chainPems.length) blocks.push({ title: 'Zertifikatskette (chain.pem)', name: 'chain.pem', text: r.chainPems.join('') });
+        if (r.fullchainPem && r.chainPems.length) blocks.push({ title: 'Zertifikat mit Kette (fullchain.pem)', name: 'fullchain.pem', text: r.fullchainPem });
+        if (r.keyPem) blocks.push({ title: 'Privater Schlüssel (privkey.pem)', name: 'privkey.pem', text: r.keyPem, secret: true });
+        out.innerHTML = (r.keyPem ? '<div class="notice warn">Der private Schlüssel ist hier nicht mehr passwortgeschützt. Sorgfältig aufbewahren.</div>' : '') +
+          blocks.map(function (b, i) {
+            return '<div class="out"><div class="oh"><b>' + esc(b.title) + '</b><span class="btns"><button type="button" class="btn small o-copy" data-i="' + i + '">Kopieren</button><button type="button" class="btn small o-dl" data-i="' + i + '">Herunterladen</button></span></div>' +
+              '<textarea class="mono" rows="' + (b.secret ? 6 : 5) + '" readonly spellcheck="false">' + esc(b.text) + '</textarea></div>';
+          }).join('');
+        $$('.o-copy', out).forEach(function (b) { b.addEventListener('click', function () { copyText(blocks[+b.dataset.i].text, b); }); });
+        $$('.o-dl', out).forEach(function (b) { b.addEventListener('click', function () { var x = blocks[+b.dataset.i]; download(x.name, x.text, 'application/x-pem-file'); }); });
+      } catch (x) { showErr(err, x); }
+    });
+  })();
+
+  init();
+})();
+</script>
+</body>
+</html>

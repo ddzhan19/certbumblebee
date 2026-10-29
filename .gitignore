@@ -1,0 +1,18 @@
+# Programme und Build-Ergebnisse
+/bin/
+/dist/
+*.exe
+/certbumblebee
+/zertifikat-assistent
+
+# Testläufe und Testzertifikate
+/uitest/*/
+/uitest/server.pid
+/uitest/shots/
+/pebble/*.crt
+/pebble/*.key
+/pebble/*.log
+/pebble/*.pid
+/mock-acme/node_modules/
+/mock-acme/*.log
+/mock-acme/*.pid

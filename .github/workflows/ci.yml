@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l *.go)"
+      - name: go vet (Linux)
+        run: go vet .
+      - name: go vet (Windows)
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet .
+      - name: Tests
+        run: go test -count=1 .
+      - name: Windows-EXE bauen
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o /tmp/certbumblebee.exe .
