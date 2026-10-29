@@ -1368,9 +1368,9 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     $('#lbl-chain').hidden = self;
     if (self) $('input[name="out"][value="chain"]').checked = false;
     $('#domains-lbl').textContent = self ? 'Für welche Namen soll das Zertifikat gelten?' : 'Für welche Domains soll das Zertifikat gelten?';
-    $('#domains').placeholder = self ? 'barcode.firma.local\nbarcode\n192.168.1.20' : 'www.beispiel.de\nbeispiel.de';
+    $('#domains').placeholder = self ? 'server.firma.local\nintranet\n192.168.1.20' : 'www.beispiel.de\nbeispiel.de';
     $('#domains-hint').textContent = self
-      ? 'Ein Name pro Zeile. Erlaubt sind Hostnamen (auch ohne Endung wie „barcode“), Wildcards (*.firma.local) und IP-Adressen. Der Name muss so lauten, wie Clients den Server aufrufen, sonst warnt der Browser.'
+      ? 'Ein Name pro Zeile. Erlaubt sind Hostnamen (auch ohne Endung wie „intranet“), Wildcards (*.firma.local) und IP-Adressen. Der Name muss so lauten, wie Clients den Server aufrufen, sonst warnt der Browser.'
       : 'Eine Domain pro Zeile. Die Domains müssen im Internet auf diesen Server zeigen (öffentlicher DNS-Eintrag). Für Wildcards (*.beispiel.de) und Domains ohne öffentlichen Eintrag gibt es den Tab „Wildcard / DNS (manuell)“. Nur intern genutzte Namen gehen auch mit „Selbstsigniert“.';
     syncOuts();
   }

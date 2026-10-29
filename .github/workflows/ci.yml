@@ -17,6 +17,11 @@ jobs:
         run: |
           python3 tools/mkresource.py
           git diff --exit-code -- resource_windows_amd64.syso
+      - name: Oberfläche aktuell?
+        working-directory: ui
+        run: |
+          node build.js
+          git diff --exit-code -- index.html
       - name: gofmt
         run: test -z "$(gofmt -l *.go)"
       - name: go vet (Linux)
