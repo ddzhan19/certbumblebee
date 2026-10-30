@@ -150,7 +150,7 @@ func TestSyncOutputsWritesAndSkips(t *testing.T) {
 	outs, _ := planOutputs([]string{"cert", "chain", "fullchain", "key", "csr"}, "crt", "x")
 	p.Outputs = outs
 	d := outputData{Chain: append(pemOf(leaf), pemOf(ca)...), Key: []byte("KEY"), CSR: []byte("CSR")}
-	all, written, err := syncOutputs(p, d)
+	all, written, err := syncOutputs(context.Background(), p, d)
 	if err != nil || len(all) != 5 || len(written) != 5 {
 		t.Fatalf("erster Lauf: %v %v %v", err, all, written)
 	}
@@ -162,12 +162,12 @@ func TestSyncOutputsWritesAndSkips(t *testing.T) {
 	if entries, _ := os.ReadDir(p.TargetDir); len(entries) != 5 {
 		t.Errorf("Zielordner enthält %d statt 5 Dateien (Hilfsdateien übrig?)", len(entries))
 	}
-	_, written, err = syncOutputs(p, d)
+	_, written, err = syncOutputs(context.Background(), p, d)
 	if err != nil || len(written) != 0 {
 		t.Errorf("zweiter Lauf schreibt erneut: %v %v", err, written)
 	}
 	d.Key = []byte("KEY2")
-	_, written, _ = syncOutputs(p, d)
+	_, written, _ = syncOutputs(context.Background(), p, d)
 	if len(written) != 1 || written[0] != "x.key" {
 		t.Errorf("nur der Schlüssel hätte sich ändern dürfen: %v", written)
 	}

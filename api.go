@@ -57,13 +57,20 @@ func (s *server) registerAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/fs/test", s.guard(true, func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Path string `json:"path"`
+			Path string      `json:"path"`
+			SMB  *SMBRequest `json:"smb"` // statt Path: Freigabe mit Zugangsdaten
 		}
 		if err := readJSON(r, &req); err != nil {
 			respond(w, 400, errBody(err))
 			return
 		}
-		msg, err := testWrite(req.Path)
+		var msg string
+		var err error
+		if req.SMB != nil {
+			msg, err = testSMBRequest(r.Context(), req.SMB)
+		} else {
+			msg, err = testWrite(req.Path)
+		}
 		if err != nil {
 			respond(w, 200, map[string]any{"ok": false, "message": err.Error()})
 			return

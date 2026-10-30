@@ -414,7 +414,50 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
 
           <fieldset class="group" id="fs-files">
             <legend>Wohin kommen die Dateien?</legend>
-            <div class="field">
+            <div class="seg" role="radiogroup" aria-label="Art des Ziels">
+              <label><input type="radio" name="ttype" value="dir" checked>Ordner</label>
+              <label><input type="radio" name="ttype" value="smb">Freigabe mit Zugangsdaten (SMB)</label>
+            </div>
+
+            <div id="smb-wrap" hidden>
+              <div class="cols">
+                <div class="field">
+                  <label class="lbl" for="smb-server">Server</label>
+                  <input id="smb-server" type="text" spellcheck="false" autocomplete="off" placeholder="dateiserver  oder  10.0.0.5">
+                </div>
+                <div class="field">
+                  <label class="lbl" for="smb-share">Freigabe</label>
+                  <input id="smb-share" type="text" spellcheck="false" autocomplete="off" placeholder="zertifikate">
+                </div>
+              </div>
+              <div class="field">
+                <label class="lbl" for="smb-dir">Unterordner (optional)</label>
+                <input id="smb-dir" type="text" spellcheck="false" autocomplete="off" placeholder="iis/barcode">
+              </div>
+              <div class="cols">
+                <div class="field">
+                  <label class="lbl" for="smb-user">Benutzer</label>
+                  <input id="smb-user" type="text" spellcheck="false" autocomplete="off" placeholder="zertifikate-dienst  oder  FIRMA\dienst">
+                </div>
+                <div class="field">
+                  <label class="lbl" for="smb-domain">Domäne (optional)</label>
+                  <input id="smb-domain" type="text" spellcheck="false" autocomplete="off" placeholder="FIRMA">
+                </div>
+              </div>
+              <div class="field">
+                <label class="lbl" for="smb-pw">Passwort</label>
+                <div class="inline">
+                  <input id="smb-pw" type="password" autocomplete="new-password" spellcheck="false">
+                  <button type="button" class="btn" id="smb-pw-show" aria-pressed="false">Anzeigen</button>
+                  <button type="button" class="btn" id="smb-test">Verbindung testen</button>
+                </div>
+                <p class="hint">Das Passwort wird für die Erneuerung geschützt auf diesem Rechner gespeichert und nie wieder angezeigt. Am besten ein eigenes Konto, das nur in diesen Ordner schreiben darf. Die Anmeldung läuft per NTLM mit SMB 2 oder 3, Kerberos wird nicht unterstützt.</p>
+                <p class="test-result" id="smb-result" hidden></p>
+              </div>
+              <div class="notice warn"><p>Die Dateien gehen übers Netz zur Freigabe, auch der private Schlüssel. Verlangen Sie auf dem Server SMB-Verschlüsselung, wenn das Netz nicht nur Ihnen gehört. Das Programm benutzt sie dann automatisch.</p></div>
+            </div>
+
+            <div class="field" id="dir-wrap">
               <label class="lbl" for="target">Zielordner</label>
               <div class="inline">
                 <input id="target" type="text" spellcheck="false" autocomplete="off" placeholder="D:\Zertifikate  oder  \\server\freigabe\zertifikate">
@@ -1479,9 +1522,39 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
   $('#runas').addEventListener('change', function () { $('#user-wrap').hidden = this.value !== 'user'; syncUnc(); });
   $('#auto').addEventListener('change', function () { $('#auto-wrap').hidden = !this.checked; syncUnc(); });
   $('#target').addEventListener('input', syncUnc);
+  function isSmb() { return $('input[name="ttype"]:checked').value === 'smb'; }
+  function syncTarget() {
+    var smb = isSmb();
+    $('#smb-wrap').hidden = !smb; $('#dir-wrap').hidden = smb;
+    syncUnc();
+  }
+  $$('input[name="ttype"]').forEach(function (r) { r.addEventListener('change', syncTarget); });
+  function readSmb() {
+    return { server: $('#smb-server').value.trim(), share: $('#smb-share').value.trim(), dir: $('#smb-dir').value.trim(),
+      user: $('#smb-user').value.trim(), domain: $('#smb-domain').value.trim(), password: $('#smb-pw').value };
+  }
+  function checkSmb(s) {
+    if (!s.server) return 'Bitte den Server eintragen.';
+    if (!s.share) return 'Bitte den Namen der Freigabe eintragen.';
+    if (!s.user) return 'Bitte den Benutzer für die Freigabe eintragen.';
+    if (!s.password) return 'Bitte das Passwort für die Freigabe eintragen.';
+    return '';
+  }
+  $('#smb-pw-show').addEventListener('click', function () {
+    var i = $('#smb-pw'), on = i.type === 'password';
+    i.type = on ? 'text' : 'password'; this.textContent = on ? 'Verbergen' : 'Anzeigen'; this.setAttribute('aria-pressed', on);
+  });
+  $('#smb-test').addEventListener('click', async function () {
+    var s = readSmb(), b = this, e = checkSmb(s);
+    if (e) { setResult($('#smb-result'), false, e); return; }
+    b.disabled = true;
+    try { var r = await api('POST', '/api/fs/test', { smb: s }); setResult($('#smb-result'), r.ok, r.message); }
+    catch (x) { setResult($('#smb-result'), false, x.message); }
+    b.disabled = false;
+  });
   function syncUnc() {
     var n = $('#unc-note'), t = $('#target').value.trim();
-    var unc = /^\\\\/.test(t) && $('#auto').checked;
+    var unc = !isSmb() && /^\\\\/.test(t) && $('#auto').checked;
     if (!unc) { n.hidden = true; return; }
     n.hidden = false;
     n.innerHTML = $('#runas').value === 'system'
@@ -1561,7 +1634,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       method: $('input[name="method"]:checked').value,
       webroot: $('#webroot').value,
       dnsAccount: isDns ? $('#dnsaccount').value : '',
-      targetDir: $('#target').value.trim(),
+      targetDir: isSmb() ? '' : $('#target').value.trim(),
       fileName: $('#filename').value.trim(),
       outputs: checkedOuts(),
       certFormat: $('#certfmt').value,
@@ -1584,7 +1657,11 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     if (self) { req.server = 'prod'; req.email = ''; req.outputs = req.outputs.filter(function (k) { return k !== 'chain'; }); }
     if (req.method === 'webroot' && !req.webroot.trim()) throw new Error(INFO.windows ? 'Bitte den Webordner angeben (z. B. C:\\inetpub\\wwwroot).' : 'Bitte den Webordner angeben (z. B. /var/www/html).');
     if (isDns && !dnsAccounts.length) throw new Error('Für „DNS (Cloudflare)“ muss zuerst ein Zugang hinterlegt werden (Reiter „DNS-Zugänge“).');
-    if (!req.targetDir) throw new Error('Bitte den Zielordner für die Dateien angeben.');
+    if (isSmb()) {
+      req.smb = readSmb();
+      var smbErr = checkSmb(req.smb);
+      if (smbErr) throw new Error(smbErr);
+    } else if (!req.targetDir) throw new Error('Bitte den Zielordner für die Dateien angeben.');
     if (!req.outputs.length) throw new Error('Bitte mindestens eine Datei auswählen, die im Zielordner liegen soll.');
     if (req.outputs.indexOf('pfx') >= 0 && !req.password) throw new Error('Bitte ein Passwort für die PFX-Datei vergeben (oder „Zufällig“ wählen).');
     if (req.outputs.indexOf('pfx') < 0) req.password = '';
@@ -1680,8 +1757,8 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     $('#issue-done').hidden = true; $('#issue-form').hidden = false;
     $('#form-issue').reset(); syncOuts(); $('#prog-issue').innerHTML = ''; hideEl($('#err-issue')); hideEl($('#exists-issue'));
     $('#auto-wrap').hidden = !$('#auto').checked; $('#user-wrap').hidden = true; $('#custom-wrap').hidden = true;
-    ['#port-result', '#target-result'].forEach(function (s) { $(s).hidden = true; });
-    lastReq = null; syncMethod(); syncUnc(); applyEnv();
+    ['#port-result', '#target-result', '#smb-result'].forEach(function (s) { $(s).hidden = true; });
+    lastReq = null; syncMethod(); syncTarget(); applyEnv();
     $('#issue-form h2').focus();
   });
   $('#to-overview').addEventListener('click', function () { selectTab('overview'); $('#tab-overview').focus(); });
@@ -1726,7 +1803,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
     if (p.method === 'selfsigned') staging = ' <span class="chip warn" title="Clients vertrauen ihm erst nach dem Import">Selbstsigniert</span>';
     var f = [];
     if (p.cert) f.push(['Gültig bis', esc(fmtDate(p.cert.notAfter))]);
-    f.push(['Zielordner', esc(p.targetDir || '')]);
+    f.push([p.smb ? 'Freigabe' : 'Zielordner', esc(p.targetDir || '') + (p.smb ? ' <span class="chip">mit Zugangsdaten</span>' : '')]);
     if (p.files && p.files.length) {
       f.push(['Dateien', '<ul class="files">' + p.files.map(function (x) {
         return '<li><code>' + esc(x.name) + '</code><span class="kind">' + esc(x.label) + '</span> <span class="st ' + (x.found ? 'ok' : 'no') + '">' + (x.found ? 'vorhanden' : 'nicht gefunden') + '</span></li>';
@@ -1871,7 +1948,7 @@ dialog::backdrop { background: rgba(10, 10, 8, .55); }
       $('#webroot').placeholder = '/var/www/html';
       $('#pk-path').placeholder = 'Pfad eingeben, z. B. /certs';
       $('#target-hint').textContent = INFO.container
-        ? 'Ordner im Container, z. B. /certs. Binden Sie ihn als Volume ein, damit die Dateien auf dem Host oder bei anderen Containern ankommen.'
+        ? 'Ordner im Container, z. B. /certs. Binden Sie ihn als Volume ein, damit die Dateien auf dem Host oder bei anderen Containern ankommen. Für eine Windows-Freigabe wählen Sie oben „Freigabe mit Zugangsdaten“.'
         : 'Absoluter Ordnerpfad auf diesem Server, z. B. /etc/ssl/certbumblebee.';
       $('#pfxpw-hint').textContent = 'Das Passwort wird für die Erneuerung verschlüsselt im Datenordner gespeichert (AES-256). Bitte zusätzlich selbst notieren, Sie brauchen es beim Import.';
     }

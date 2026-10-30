@@ -19,29 +19,30 @@ import (
 
 // CreateRequest ist die Eingabe aus der Oberfläche.
 type CreateRequest struct {
-	Domains      string   `json:"domains"`
-	Method       string   `json:"method"`
-	Webroot      string   `json:"webroot"`
-	DNSAccount   string   `json:"dnsAccount"` // nur Methode „dns“: Zugang, leer = je Zone automatisch
-	ValidDays    int      `json:"validDays"`  // nur selbstsigniert: Gültigkeit in Tagen
-	TargetDir    string   `json:"targetDir"`
-	FileName     string   `json:"fileName"`   // Dateiname ohne Endung (optional)
-	Outputs      []string `json:"outputs"`    // pfx, cert, chain, fullchain, key, csr
-	CertFormat   string   `json:"certFormat"` // crt | cer | pem | cer-der
-	Password     string   `json:"password"`
-	Server       string   `json:"server"`
-	CustomURL    string   `json:"customUrl"`
-	Email        string   `json:"email"`
-	KeyBits      int      `json:"keyBits"`
-	PfxFormat    string   `json:"pfxFormat"`
-	AutoRenew    bool     `json:"autoRenew"`
-	TaskTime     string   `json:"taskTime"`
-	RunAs        string   `json:"runAs"` // system | user
-	User         string   `json:"user"`
-	UserPassword string   `json:"userPassword"`
-	TaskName     string   `json:"taskName"`
-	Firewall     bool     `json:"firewall"`
-	Replace      bool     `json:"replace"`
+	Domains      string      `json:"domains"`
+	Method       string      `json:"method"`
+	Webroot      string      `json:"webroot"`
+	DNSAccount   string      `json:"dnsAccount"` // nur Methode „dns“: Zugang, leer = je Zone automatisch
+	ValidDays    int         `json:"validDays"`  // nur selbstsigniert: Gültigkeit in Tagen
+	TargetDir    string      `json:"targetDir"`
+	SMB          *SMBRequest `json:"smb,omitempty"` // statt TargetDir: Freigabe mit eigenen Zugangsdaten
+	FileName     string      `json:"fileName"`      // Dateiname ohne Endung (optional)
+	Outputs      []string    `json:"outputs"`       // pfx, cert, chain, fullchain, key, csr
+	CertFormat   string      `json:"certFormat"`    // crt | cer | pem | cer-der
+	Password     string      `json:"password"`
+	Server       string      `json:"server"`
+	CustomURL    string      `json:"customUrl"`
+	Email        string      `json:"email"`
+	KeyBits      int         `json:"keyBits"`
+	PfxFormat    string      `json:"pfxFormat"`
+	AutoRenew    bool        `json:"autoRenew"`
+	TaskTime     string      `json:"taskTime"`
+	RunAs        string      `json:"runAs"` // system | user
+	User         string      `json:"user"`
+	UserPassword string      `json:"userPassword"`
+	TaskName     string      `json:"taskName"`
+	Firewall     bool        `json:"firewall"`
+	Replace      bool        `json:"replace"`
 }
 
 var (
@@ -144,7 +145,14 @@ func buildProfile(req CreateRequest) (*Profile, error) {
 		return nil, fmt.Errorf("Unbekannte Methode.")
 	}
 
-	if p.TargetDir, err = validatePath(req.TargetDir, win, "Zielordner"); err != nil {
+	if req.SMB != nil {
+		if p.SMB, err = validateSMB(req.SMB); err != nil {
+			return nil, err
+		}
+		if err = validateSMBPassword(req.SMB.Password); err != nil {
+			return nil, err
+		}
+	} else if p.TargetDir, err = validatePath(req.TargetDir, win, "Zielordner"); err != nil {
 		return nil, err
 	}
 	base := baseName(req.FileName, domains[0])
@@ -233,7 +241,7 @@ func buildProfile(req CreateRequest) (*Profile, error) {
 		if taskNameBad.MatchString(p.Task.Name) || len(p.Task.Name) > 200 {
 			return nil, fmt.Errorf("Aufgabenname: Bitte ohne \\ / : * ? \" < > | und Anführungszeichen.")
 		}
-		if win && plat.IsMappedDrive(p.TargetDir) {
+		if win && p.SMB == nil && plat.IsMappedDrive(p.TargetDir) {
 			return nil, fmt.Errorf("„%s“ liegt auf einem zugeordneten Netzlaufwerk. Die automatische Aufgabe sieht solche Laufwerke nicht. Bitte den UNC-Pfad verwenden, z. B. \\\\server\\freigabe\\ordner.", p.TargetDir)
 		}
 	}
@@ -346,7 +354,7 @@ func runProfile(ctx context.Context, p *Profile, pw string, force bool, rep Repo
 		reason = fmt.Sprintf("Das Zertifikat läuft am %s ab, erneuere es.", cur.NotAfter.Local().Format("02.01.2006"))
 	}
 
-	res = &RunResult{Target: p.TargetDir}
+	res = &RunResult{Target: p.targetLabel()}
 	if reason != "" {
 		rep.Logf("%s", reason)
 		chain, key, csr, ierr := issueCertificate(ctx, p, rep)
@@ -428,7 +436,7 @@ func runProfile(ctx context.Context, p *Profile, pw string, force bool, rep Repo
 	}
 
 	rep.Step("ziel", "In den Zielordner speichern")
-	all, written, serr := syncOutputs(p, data)
+	all, written, serr := syncOutputs(ctx, p, data)
 	if serr != nil {
 		rep.Fail("ziel", serr.Error())
 		return nil, serr
@@ -437,9 +445,9 @@ func runProfile(ctx context.Context, p *Profile, pw string, force bool, rep Repo
 	res.Written = len(written) > 0
 	if res.Written {
 		st.SyncedAt = time.Now()
-		rep.Ok("ziel", fmt.Sprintf("%s in „%s“", filesText(len(written)), p.TargetDir))
+		rep.Ok("ziel", fmt.Sprintf("%s in „%s“", filesText(len(written)), p.targetLabel()))
 	} else {
-		rep.Ok("ziel", fmt.Sprintf("%s in „%s“ waren schon aktuell", filesText(len(all)), p.TargetDir))
+		rep.Ok("ziel", fmt.Sprintf("%s in „%s“ waren schon aktuell", filesText(len(all)), p.targetLabel()))
 	}
 
 	res.Cert = loadCertInfo(p.ID)
@@ -547,9 +555,18 @@ func createProfile(ctx context.Context, p *Profile, req CreateRequest, rep Repor
 			return nil, err
 		}
 	}
-	// Zielordner vorab prüfen: Ein falscher Pfad soll auffallen, bevor eine Bestellung beim Anbieter läuft.
-	if _, terr := testWrite(p.TargetDir); terr != nil {
-		err = uerr(fmt.Sprintf("Zielordner „%s“: %s", p.TargetDir, strings.TrimSuffix(terr.Error(), ".")+". Bitte Pfad und Rechte prüfen (bei Netzwerkfreigaben die Rechte des Kontos, unter dem die Aufgabe läuft)."), terr.Error())
+	if p.SMB != nil && req.SMB != nil {
+		if err = saveSMBSecret(p.ID, req.SMB.Password); err != nil {
+			return nil, err
+		}
+	}
+	// Ziel vorab prüfen: Ein falscher Pfad oder falsche Zugangsdaten sollen auffallen, bevor eine Bestellung beim Anbieter läuft.
+	if _, terr := p.testTarget(ctx); terr != nil {
+		hint := "Bitte Pfad und Rechte prüfen (bei Netzwerkfreigaben die Rechte des Kontos, unter dem die Aufgabe läuft)."
+		if p.SMB != nil {
+			hint = "Bitte Server, Freigabe, Benutzer und Passwort prüfen."
+		}
+		err = uerr(fmt.Sprintf("Zielordner „%s“: %s", p.targetLabel(), strings.TrimSuffix(terr.Error(), ".")+". "+hint), terr.Error())
 		rep.Fail("einrichtung", err.Error())
 		rollbackEarly := func() { _ = os.RemoveAll(profileDir(p.ID)) }
 		rollbackEarly()
@@ -683,6 +700,7 @@ type ProfileView struct {
 	DNSAccount  string     `json:"dnsAccount,omitempty"`
 	DNSName     string     `json:"dnsName,omitempty"`
 	TargetDir   string     `json:"targetDir"`
+	SMB         bool       `json:"smb,omitempty"` // Ziel ist eine Freigabe mit Zugangsdaten
 	FileName    string     `json:"fileName"`
 	TargetFile  string     `json:"targetFile"`
 	TargetFound bool       `json:"targetFound"`
@@ -711,18 +729,22 @@ func listProfiles() []ProfileView {
 				return
 			}
 			st := loadState(id)
-			v := ProfileView{ID: id, Domains: p.Domains, Method: p.Method, Webroot: p.Webroot, DNSAccount: p.DNSAccount, TargetDir: p.TargetDir, FileName: p.FileName,
-				TargetFile: filepath.Join(p.TargetDir, p.FileName), ServerKind: p.ServerKind, PfxFormat: p.PfxFormat,
+			v := ProfileView{ID: id, Domains: p.Domains, Method: p.Method, Webroot: p.Webroot, DNSAccount: p.DNSAccount, TargetDir: p.targetLabel(), SMB: p.SMB != nil, FileName: p.FileName,
+				TargetFile: p.targetFile(p.FileName), ServerKind: p.ServerKind, PfxFormat: p.PfxFormat,
 				LastResult: st.LastResult, LastMessage: st.LastMessage,
 				Task: TaskView{Enabled: p.Task.Enabled, Name: p.Task.Name, Time: p.Task.Time, RunAs: p.Task.RunAs}}
 			if !st.LastRun.IsZero() {
 				t := st.LastRun
 				v.LastRun = &t
 			}
-			v.TargetFile = filepath.Join(p.TargetDir, p.outputs()[0].Name)
+			v.TargetFile = p.targetFile(p.outputs()[0].Name)
 			for _, o := range p.outputs() {
-				fv := FileView{Kind: o.Kind, Label: outputLabel(o.Kind), Name: o.Name, Path: filepath.Join(p.TargetDir, o.Name)}
-				if _, err := os.Stat(fv.Path); err == nil {
+				fv := FileView{Kind: o.Kind, Label: outputLabel(o.Kind), Name: o.Name, Path: p.targetFile(o.Name)}
+				if p.SMB != nil {
+					// Die Übersicht verbindet sich nicht bei jedem Aufruf mit der Freigabe: Die Dateien gelten als
+					// vorhanden, sobald ein Lauf sie erfolgreich abgelegt hat.
+					fv.Found = !st.SyncedAt.IsZero()
+				} else if _, err := os.Stat(fv.Path); err == nil {
 					fv.Found = true
 				}
 				v.Files = append(v.Files, fv)

@@ -12,7 +12,7 @@ Programmiert von Dzhan Chelebi.
 - **Wildcards mit anderem DNS-Anbieter:** Der Reiter „Wildcard / DNS (manuell)“ zeigt die TXT-Einträge an, die man selbst anlegt, prüft sie vor dem Start und stellt das Zertifikat danach aus.
 - **Selbstsigniert für interne Server:** Kein Internet, keine öffentliche Domain, kein Port 80. Erlaubt sind Hostnamen (auch ohne Endung), Wildcards und IP-Adressen. Gültigkeit 30 bis 3650 Tage (in der Oberfläche 1 bis 10 Jahre).
 - **Dateien frei wählbar:** PFX, Zertifikat (`.crt`, `.cer`, `.pem`, auch binär/DER), Zwischenzertifikate, Zertifikat mit Kette (fullchain), privater Schlüssel (`.key`) und Zertifikatsanforderung (`.csr`).
-- **Zielordner lokal oder als Netzwerkfreigabe** (Windows: `\\server\freigabe\ordner`; Container: ein Volume, z. B. `/certs`).
+- **Zielordner lokal oder als Netzwerkfreigabe:** ein lokaler Ordner (Windows: auch `\\server\freigabe\ordner` mit dem Konto der Aufgabe; Container: ein Volume, z. B. `/certs`) oder eine **SMB-Freigabe mit eigenen Zugangsdaten**, die man direkt in der Oberfläche eingibt. Das geht auf jeder Plattform, auch im Container, ohne die Freigabe einzuhängen.
 - **Automatische Erneuerung:** 30 Tage vor Ablauf, bei kurzer Laufzeit nach einem Drittel der Laufzeit. Unter Windows über die Aufgabenplanung (die EXE legt die Aufgabe selbst an), im Dauerbetrieb (`serve`, Container) über einen eigenen täglichen Zeitplan im Programm.
 - **PEM ↔ PFX umwandeln** in der Oberfläche, in beide Richtungen. Das läuft vollständig im Browser, Schlüssel und Passwörter verlassen den Rechner nicht.
 
@@ -40,6 +40,17 @@ So läuft es ab: Für jeden Namen wird `_acme-challenge.<domain>` als TXT-Eintra
 Ohne Oberfläche lässt sich ein Zugang auch über die Umgebung vorgeben (`ZA_CLOUDFLARE_TOKEN` oder `ZA_CLOUDFLARE_TOKEN_FILE`, siehe unten). Er erscheint dann als „Aus der Umgebung“ und lässt sich nur dort ändern.
 
 Ein Zugang, den Zertifikate benutzen, lässt sich nicht löschen. Das gilt auch für den letzten Zugang, solange Zertifikate ihre Zone automatisch darin suchen.
+
+## Dateien auf eine Netzwerkfreigabe legen (SMB)
+
+Unter „Wohin kommen die Dateien?“ die Art „Freigabe mit Zugangsdaten (SMB)“ wählen und Server, Freigabe, Unterordner, Benutzer, Domäne und Passwort eintragen. „Verbindung testen“ prüft Erreichbarkeit, Anmeldung und Schreibrecht und hinterlässt keine Spuren.
+
+- **Passwort:** Es wird geschützt auf dem Rechner gespeichert (wie das PFX-Passwort) und nie wieder angezeigt. Die Erneuerung benutzt es automatisch. Am besten ein eigenes Konto, das nur in diesen Ordner schreiben darf.
+- **Protokoll:** SMB 2 und 3, Anmeldung per NTLM mit Benutzer, Domäne und Passwort. Kerberos und SMB 1 werden nicht unterstützt. Verlangt der Server Signierung oder Verschlüsselung (SMB 3), wird beides benutzt.
+- **Container:** Es braucht weder Zusatzrechte noch ein Einhängen der Freigabe, nur eine Netzwerkverbindung zum Port 445 des Servers (oder zum angegebenen Port).
+- **Ersetzen:** Neue Dateien entstehen unter einem Hilfsnamen und werden dann umbenannt. Eine vorhandene Datei wird dabei kurz beiseitegelegt (`.old`) und bei einem Fehler zurückgeholt, damit nie beide fehlen.
+- **Dateirechte auf Samba (Linux):** SMB kennt keine Unix-Rechte, die Rechte der Dateien bestimmt der Server (`create mask`, `force create mode`). Mit den Standardwerten kann jeder lokale Benutzer des Servers die `.key`-Datei lesen. Dort die Freigabe entsprechend einschränken.
+- **Windows-Pfad:** Der Pfad `\\server\freigabe\ordner` im Feld „Ordner“ bleibt möglich. Er benutzt das Konto der Aufgabe (beim Systemkonto das Computerkonto) statt eigener Zugangsdaten.
 
 ## Docker
 
@@ -169,6 +180,21 @@ bash pebble/up.sh
 SSL_CERT_FILE=$PWD/pebble/pebble.crt ZA_TEST_PEBBLE=1 go test -count=1 ./...
 bash pebble/down.sh
 ```
+
+Die SMB-Tests (Anmelden, Schreiben, Ersetzen und der ganze Ablauf mit einer Freigabe) brauchen einen echten SMB-Server, zum Beispiel Samba im Docker. Ohne `ZA_TEST_SMB` werden sie übersprungen:
+
+```
+mkdir -p /tmp/zert-share && chmod 777 /tmp/zert-share
+docker run -d --name samba-test -p 127.0.0.1:1445:445 \
+  -e ACCOUNT_tester=tester-pass-1 -e UID_tester=1000 \
+  -e SAMBA_VOLUME_CONFIG_zert="[zert]; path=/shares/zert; valid users = tester; guest ok = no; read only = no" \
+  -e AVAHI_DISABLE=1 -e WSDD2_DISABLE=1 -e NETBIOS_DISABLE=1 \
+  -v /tmp/zert-share:/shares/zert ghcr.io/servercontainers/samba:latest
+ZA_TEST_SMB=127.0.0.1:1445 go test -count=1 -run SMBServer .
+docker rm -fv samba-test
+```
+
+Freigabe, Benutzer und Passwort lassen sich mit `ZA_TEST_SMB_SHARE`, `ZA_TEST_SMB_USER` und `ZA_TEST_SMB_PASS` ändern.
 
 Die Browser-Tests der Oberfläche (Playwright für Python) liegen in `uitest/`. Jeder Testlauf braucht einen frisch gestarteten Server, weil der Startlink nur einmal gilt:
 

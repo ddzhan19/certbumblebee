@@ -27,7 +27,8 @@ type Profile struct {
 	ValidDays    int          `json:"validDays,omitempty"`  // Gültigkeit selbstsignierter Zertifikate in Tagen
 	Webroot      []string     `json:"webroot,omitempty"`
 	TargetDir    string       `json:"targetDir"`
-	FileName     string       `json:"fileName"` // Name der PFX-Datei (oder der ersten Datei)
+	SMB          *SMBTarget   `json:"smb,omitempty"` // statt TargetDir: Netzwerkfreigabe mit eigenen Zugangsdaten
+	FileName     string       `json:"fileName"`      // Name der PFX-Datei (oder der ersten Datei)
 	Outputs      []OutputSpec `json:"outputs,omitempty"`
 	ServerKind   string       `json:"serverKind"` // prod | staging | custom
 	DirectoryURL string       `json:"directoryUrl"`
@@ -148,30 +149,41 @@ func listProfileIDs() []string {
 	return ids
 }
 
-// ---- Passwort der PFX-Datei (geschützt abgelegt) ----
+// ---- Passwörter (PFX-Datei, SMB-Freigabe), geschützt abgelegt ----
 
-func saveSecret(id, pw string) error {
+func saveProtected(id, file, pw string) error {
 	enc, err := plat.Protect([]byte(pw))
 	if err != nil {
 		return fmt.Errorf("Das Passwort konnte nicht geschützt gespeichert werden: %v", err)
 	}
-	return writeFileAtomic(filepath.Join(profileDir(id), "pfx.secret"), []byte(base64.StdEncoding.EncodeToString(enc)), 0o600)
+	return writeFileAtomic(filepath.Join(profileDir(id), file), []byte(base64.StdEncoding.EncodeToString(enc)), 0o600)
 }
 
-func loadSecret(id string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(profileDir(id), "pfx.secret"))
+// loadProtected liest ein geschützt abgelegtes Passwort; what benennt es in den Fehlermeldungen.
+func loadProtected(id, file, what string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(profileDir(id), file))
 	if err != nil {
-		return "", fmt.Errorf("Das gespeicherte PFX-Passwort fehlt: %v", err)
+		return "", fmt.Errorf("Das gespeicherte %s fehlt: %v", what, err)
 	}
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil {
-		return "", fmt.Errorf("Das gespeicherte PFX-Passwort ist beschädigt.")
+		return "", fmt.Errorf("Das gespeicherte %s ist beschädigt.", what)
 	}
 	pt, err := plat.Unprotect(raw)
 	if err != nil {
-		return "", fmt.Errorf("Das gespeicherte PFX-Passwort lässt sich nicht entschlüsseln (nur auf dem Rechner lesbar, auf dem es gespeichert wurde): %v", err)
+		return "", fmt.Errorf("Das gespeicherte %s lässt sich nicht entschlüsseln (nur auf dem Rechner lesbar, auf dem es gespeichert wurde): %v", what, err)
 	}
 	return string(pt), nil
+}
+
+// Passwort der PFX-Datei
+func saveSecret(id, pw string) error       { return saveProtected(id, "pfx.secret", pw) }
+func loadSecret(id string) (string, error) { return loadProtected(id, "pfx.secret", "PFX-Passwort") }
+
+// Passwort für die SMB-Freigabe
+func saveSMBSecret(id, pw string) error { return saveProtected(id, "smb.secret", pw) }
+func loadSMBSecret(id string) (string, error) {
+	return loadProtected(id, "smb.secret", "Passwort für die Freigabe")
 }
 
 // ---- Sperre gegen gleichzeitige Läufe (Aufgabe und Oberfläche) ----

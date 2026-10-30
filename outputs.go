@@ -2,14 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -198,11 +197,25 @@ func (o OutputSpec) render(d outputData) ([]byte, error) {
 	return nil, fmt.Errorf("Unbekannte Dateiart „%s“.", o.Kind)
 }
 
-// syncOutputs legt alle gewünschten Dateien im Zielordner ab (erst unter Hilfsnamen, dann umbenennen).
+// syncOutputs legt alle gewünschten Dateien im Ziel ab (lokaler Ordner oder SMB-Freigabe).
 // Rückgabe: Pfade aller Dateien und die Namen der Dateien, die neu geschrieben wurden.
-func syncOutputs(p *Profile, d outputData) (all, written []string, err error) {
-	if err := os.MkdirAll(p.TargetDir, 0o755); err != nil {
-		return nil, nil, uerr(fmt.Sprintf("Der Zielordner „%s“ ist nicht erreichbar oder nicht beschreibbar. Bitte Pfad und Rechte prüfen (bei Netzwerkfreigaben: Rechte des Kontos, unter dem die Aufgabe läuft).", p.TargetDir), err.Error())
+func syncOutputs(ctx context.Context, p *Profile, d outputData) (all, written []string, err error) {
+	t, err := p.openTarget(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer t.Close()
+	return syncTo(t, p, d)
+}
+
+// syncTo schreibt die Dateien ins Ziel (erst unter Hilfsnamen, dann umbenennen).
+func syncTo(t targetFS, p *Profile, d outputData) (all, written []string, err error) {
+	if err := t.MkdirAll(); err != nil {
+		hint := "Bitte Pfad und Rechte prüfen (bei Netzwerkfreigaben: Rechte des Kontos, unter dem die Aufgabe läuft)."
+		if p.SMB != nil {
+			hint = explainSMB(err, p.SMB)
+		}
+		return nil, nil, uerr(fmt.Sprintf("Der Zielordner „%s“ ist nicht erreichbar oder nicht beschreibbar. %s", p.targetLabel(), hint), err.Error())
 	}
 	for _, o := range p.outputs() {
 		data, rerr := o.render(d)
@@ -212,17 +225,17 @@ func syncOutputs(p *Profile, d outputData) (all, written []string, err error) {
 		if data == nil {
 			continue
 		}
-		dest := filepath.Join(p.TargetDir, o.Name)
+		dest := p.targetFile(o.Name)
 		all = append(all, dest)
-		if old, e := os.ReadFile(dest); e == nil && bytes.Equal(old, data) {
+		if old, e := t.ReadFile(o.Name); e == nil && bytes.Equal(old, data) {
 			continue
 		}
-		tmp := dest + ".tmp"
-		if err := os.WriteFile(tmp, data, 0o600); err != nil {
-			return nil, nil, uerr(fmt.Sprintf("Die Datei „%s“ konnte nicht in „%s“ geschrieben werden. Bitte Schreibrechte prüfen.", o.Name, p.TargetDir), err.Error())
+		tmp := o.Name + ".tmp"
+		if err := t.WriteFile(tmp, data); err != nil {
+			return nil, nil, uerr(fmt.Sprintf("Die Datei „%s“ konnte nicht in „%s“ geschrieben werden. %s", o.Name, p.targetLabel(), p.writeHint(err)), err.Error())
 		}
-		if err := os.Rename(tmp, dest); err != nil {
-			_ = os.Remove(tmp)
+		if err := t.Replace(tmp, o.Name); err != nil {
+			_ = t.Remove(tmp)
 			return nil, nil, uerr(fmt.Sprintf("Die Datei „%s“ konnte nicht ersetzt werden (wird sie gerade von einem Programm benutzt?).", dest), err.Error())
 		}
 		written = append(written, o.Name)
