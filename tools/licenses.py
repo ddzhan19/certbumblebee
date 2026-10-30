@@ -4,6 +4,8 @@
 Die BSD-Lizenzen der Bibliotheken verlangen, ihren Urheberrechtshinweis und Lizenztext bei der Weitergabe von
 Programmen mitzuliefern. Die Datei kommt deshalb ins Docker-Image (/licenses) und ins Release. Welche Module
 dazugehören, fragt das Skript bei Go ab (für Linux und Windows), die Texte stehen im Modul-Zwischenspeicher von Go.
+Dazu kommt die JavaScript-Bibliothek forge, die in der Oberfläche steckt (ui/vendor/forge.min.js). Sie ist kein Go-Modul,
+ihr Lizenztext liegt deshalb als ui/vendor/forge.LICENSE im Repository.
 Es wird nur die Standardbibliothek benutzt, und die Ausgabe ist immer gleich (keine Zeitstempel).
 
 Aufruf (im Hauptverzeichnis, nach go mod download oder go build):  python3 tools/licenses.py
@@ -14,6 +16,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "THIRD_PARTY_LICENSES.md")
+FORGE_LICENSE = os.path.join(ROOT, "ui", "vendor", "forge.LICENSE")
 LICENSE_NAMES = ("license", "license.txt", "license.md", "licence", "copying", "copying.txt")
 
 
@@ -76,6 +79,9 @@ def main():
             sys.exit("%s %s: keine Lizenzdatei gefunden in %s" % (path, version, directory))
         text = read(lf)
         entries.append((path, version, kind(text), text, "https://pkg.go.dev/%s@%s" % (path, version)))
+    # forge steckt in ui/index.html und damit in jeder Programmdatei. Gewählt wird die BSD-Lizenz (die GPL 2 steht im selben Text).
+    entries.append(("node-forge (JavaScript, in der Oberfläche)", "1.x", "BSD-3-Clause (alternativ GPL-2.0)", read(FORGE_LICENSE),
+                    "https://github.com/digitalbazaar/forge"))
     goroot = go("env", "GOROOT").strip()
     # Offizielle Go-Pakete legen LICENSE in GOROOT ab, Homebrew eine Ebene darüber.
     candidates = [os.path.join(goroot, "LICENSE"), os.path.join(os.path.dirname(goroot), "LICENSE")]

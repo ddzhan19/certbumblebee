@@ -155,7 +155,7 @@ Das Programmsymbol (`icon/certbumblebee.ico`) und die Versionsangaben der EXE st
 python3 tools/mkresource.py
 ```
 
-Nach einer Änderung an `go.mod` die Lizenzdatei der eingebauten Bibliotheken neu erzeugen (die CI prüft, ob sie aktuell ist):
+Nach einer Änderung an `go.mod` oder an der JavaScript-Bibliothek in `ui/vendor` (dann auch `ui/vendor/forge.LICENSE` austauschen) die Lizenzdatei der eingebauten Bibliotheken neu erzeugen (die CI prüft, ob sie aktuell ist):
 
 ```
 python3 tools/licenses.py
