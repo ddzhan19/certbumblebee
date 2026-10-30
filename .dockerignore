@@ -9,3 +9,4 @@ icon
 *.exe
 *.md
 !README.md
+!THIRD_PARTY_LICENSES.md

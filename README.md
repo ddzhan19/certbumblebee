@@ -155,6 +155,12 @@ Das Programmsymbol (`icon/certbumblebee.ico`) und die Versionsangaben der EXE st
 python3 tools/mkresource.py
 ```
 
+Nach einer Änderung an `go.mod` die Lizenzdatei der eingebauten Bibliotheken neu erzeugen (die CI prüft, ob sie aktuell ist):
+
+```
+python3 tools/licenses.py
+```
+
 Die Oberfläche ist in das Programm eingebettet. Quelle ist `ui/src.html`; `ui/index.html` wird daraus erzeugt:
 
 ```
@@ -218,4 +224,4 @@ kill $(cat uitest/serve.pid)
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+MIT, siehe [LICENSE](LICENSE). Die Lizenzen der eingebauten Bibliotheken (BSD) stehen in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). Die Datei liegt bei jedem Release und im Docker-Image unter `/licenses/`.

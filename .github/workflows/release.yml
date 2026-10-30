@@ -40,6 +40,8 @@ jobs:
         run: python3 tools/mkresource.py
       - name: Tests
         run: go test -count=1 .
+      - name: Lizenzdatei erzeugen
+        run: python3 tools/licenses.py
       - name: Windows-EXE und Linux-Programme bauen
         run: |
           mkdir dist
@@ -49,6 +51,8 @@ jobs:
           # 32-Bit-ARM für Raspberry Pi mit 32-Bit-System: armv7 (Pi 2, 3, 4) und armv6 (Pi 1, Zero)
           GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-armv7 .
           GOOS=linux GOARCH=arm GOARM=6 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/certbumblebee-linux-armv6 .
+          # Die Lizenzen des Programms und der eingebauten Bibliotheken liegen als Dateien beim Release.
+          cp LICENSE THIRD_PARTY_LICENSES.md dist/
           cd dist
           sha256sum certbumblebee.exe > certbumblebee.exe.sha256
           sha256sum certbumblebee-linux-amd64 certbumblebee-linux-arm64 certbumblebee-linux-armv7 certbumblebee-linux-armv6 > certbumblebee-linux.sha256

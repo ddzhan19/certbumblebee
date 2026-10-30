@@ -32,6 +32,10 @@ jobs:
         run: GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go vet .
       - name: Tests
         run: go test -count=1 .
+      - name: Lizenzdatei aktuell?
+        run: |
+          python3 tools/licenses.py
+          git diff --exit-code -- THIRD_PARTY_LICENSES.md
       - name: Windows-EXE bauen
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/certbumblebee.exe .
       - name: Linux-Programm bauen

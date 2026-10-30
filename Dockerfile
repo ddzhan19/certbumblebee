@@ -25,6 +25,8 @@ LABEL org.opencontainers.image.title="Certbumblebee" \
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/certbumblebee /certbumblebee
+# Lizenz des Programms und der eingebauten Bibliotheken (die BSD-Lizenzen verlangen die Hinweise bei der Weitergabe).
+COPY LICENSE THIRD_PARTY_LICENSES.md /licenses/
 # Die Ordner gehören dem Benutzer 10001, damit auch frische Volumes beschreibbar sind.
 COPY --from=build --chown=10001:10001 /out/data /data
 COPY --from=build --chown=10001:10001 /out/certs /certs
