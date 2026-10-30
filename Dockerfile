@@ -21,7 +21,7 @@ LABEL org.opencontainers.image.title="Certbumblebee" \
       org.opencontainers.image.description="TLS-Zertifikate holen, ablegen und automatisch erneuern (Let's Encrypt, Cloudflare-DNS, selbstsigniert)" \
       org.opencontainers.image.authors="Dzhan Chelebi" \
       org.opencontainers.image.source="https://github.com/ddzhan19/certbumblebee" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="GPL-3.0-or-later"
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/certbumblebee /certbumblebee

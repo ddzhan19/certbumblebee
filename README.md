@@ -224,4 +224,8 @@ kill $(cat uitest/serve.pid)
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE). Die Lizenzen der eingebauten Bibliotheken (BSD) stehen in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). Die Datei liegt bei jedem Release und im Docker-Image unter `/licenses/`.
+Certbumblebee ist freie Software unter der **GNU General Public License, Version 3 oder später** (GPL-3.0-or-later), siehe [LICENSE](LICENSE). Sie dürfen das Programm benutzen, verändern und weitergeben. Wer es weitergibt, verändert oder unverändert, muss den Quellcode mitliefern und dieselbe Lizenz verwenden. Es gibt keinerlei Gewährleistung. Rechtlich maßgeblich ist der englische Text in `LICENSE`.
+
+Copyright (C) 2026 Dzhan Chelebi
+
+Die Versionen bis 2.1.0 wurden unter der MIT-Lizenz veröffentlicht und bleiben dort. Die Lizenzen der eingebauten Bibliotheken (BSD) stehen in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). Die Datei liegt bei jedem Release und im Docker-Image unter `/licenses/`.

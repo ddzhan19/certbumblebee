@@ -86,7 +86,8 @@ def main():
     entries.append(("Go (Laufzeit und Standardbibliothek)", "–", kind(gotext), gotext, "https://go.dev/LICENSE"))
 
     out = ["# Lizenzen der eingebauten Bibliotheken", "",
-           "Certbumblebee steht unter der MIT-Lizenz (siehe [LICENSE](LICENSE)). Das Programm enthält die folgenden",
+           "Certbumblebee steht unter der GNU General Public License, Version 3 oder später (siehe [LICENSE](LICENSE)).",
+           "Das Programm enthält die folgenden",
            "Bibliotheken. Für sie gelten ihre eigenen Lizenzen, deren Texte unten stehen.", "",
            "Diese Datei wird mit `python3 tools/licenses.py` aus den tatsächlich verwendeten Modulen erzeugt.", "",
            "| Bibliothek | Version | Lizenz |", "|---|---|---|"]
